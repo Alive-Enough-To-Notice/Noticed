@@ -7,6 +7,12 @@ import {
   REQUEST_PRIORITY_LABELS,
   isOverdue,
 } from "@/lib/requests";
+import {
+  statusBadgeClass,
+  priorityBadgeClass,
+  CRITICAL_BADGE_CLASS,
+  NEUTRAL_BADGE_CLASS,
+} from "@/lib/badges";
 import { updateStatus, assignOwner, setMissingInfo, addNote } from "./actions";
 
 export default async function RequestDetailPage({
@@ -32,32 +38,32 @@ export default async function RequestDetailPage({
     <div className="flex flex-col gap-8">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-[var(--slate)]">
             {REQUEST_TYPE_LABELS[request.type]} · {request.requesterName}
             {request.department ? ` · ${request.department}` : ""}
           </p>
           <h1 className="text-xl font-semibold">{request.title}</h1>
           {request.description && (
-            <p className="mt-1 max-w-xl text-sm text-zinc-500">
+            <p className="mt-1 max-w-xl text-sm text-[var(--slate)]">
               {request.description}
             </p>
           )}
         </div>
-        <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-medium text-[var(--accent)]">
+        <span
+          className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusBadgeClass(request.status)}`}
+        >
           {REQUEST_STATUS_LABELS[request.status]}
         </span>
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
-        <span className="rounded border border-[var(--card-border)] px-2 py-0.5 text-zinc-500">
+        <span className={`rounded px-2 py-0.5 ${priorityBadgeClass(request.priority)}`}>
           {REQUEST_PRIORITY_LABELS[request.priority]} priority
         </span>
         {request.dueDate && (
           <span
-            className={`rounded border px-2 py-0.5 ${
-              isOverdue(request)
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "border-[var(--card-border)] text-zinc-500"
+            className={`rounded px-2 py-0.5 ${
+              isOverdue(request) ? CRITICAL_BADGE_CLASS : NEUTRAL_BADGE_CLASS
             }`}
           >
             Due{" "}
@@ -67,7 +73,7 @@ export default async function RequestDetailPage({
           </span>
         )}
         {request.owner && (
-          <span className="rounded border border-[var(--card-border)] px-2 py-0.5 text-zinc-500">
+          <span className={`rounded px-2 py-0.5 ${NEUTRAL_BADGE_CLASS}`}>
             Owner: {request.owner}
           </span>
         )}
@@ -75,7 +81,7 @@ export default async function RequestDetailPage({
 
       <div className="grid gap-4 sm:grid-cols-3">
         <section className="flex flex-col gap-2 rounded-lg border border-[var(--card-border)] bg-white p-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--slate)]">
             Status
           </h2>
           <form action={updateStatusWithId} className="flex gap-2">
@@ -93,7 +99,7 @@ export default async function RequestDetailPage({
             </select>
             <button
               type="submit"
-              className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white"
+              className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
             >
               Save
             </button>
@@ -101,7 +107,7 @@ export default async function RequestDetailPage({
         </section>
 
         <section className="flex flex-col gap-2 rounded-lg border border-[var(--card-border)] bg-white p-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--slate)]">
             Owner
           </h2>
           <form action={assignOwnerWithId} className="flex gap-2">
@@ -114,7 +120,7 @@ export default async function RequestDetailPage({
             />
             <button
               type="submit"
-              className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white"
+              className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
             >
               Save
             </button>
@@ -122,7 +128,7 @@ export default async function RequestDetailPage({
         </section>
 
         <section className="flex flex-col gap-2 rounded-lg border border-[var(--card-border)] bg-white p-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--slate)]">
             Missing info
           </h2>
           <form action={setMissingInfoWithId} className="flex gap-2">
@@ -135,7 +141,7 @@ export default async function RequestDetailPage({
             />
             <button
               type="submit"
-              className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white"
+              className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
             >
               Save
             </button>
@@ -144,7 +150,7 @@ export default async function RequestDetailPage({
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--slate)]">
           Activity
         </h2>
 
@@ -162,7 +168,7 @@ export default async function RequestDetailPage({
           </label>
           <button
             type="submit"
-            className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white"
+            className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
           >
             Add
           </button>
@@ -175,7 +181,7 @@ export default async function RequestDetailPage({
               className="flex items-baseline justify-between rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm"
             >
               <span>{activity.message}</span>
-              <span className="text-xs text-zinc-400">
+              <span className="text-xs text-[var(--slate)]">
                 {activity.createdAt.toLocaleString()}
               </span>
             </div>

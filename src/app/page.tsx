@@ -7,34 +7,50 @@ import {
   isAging,
   isOverdue,
   needsInfo,
+  isTerminalStatus,
   workbenchSort,
 } from "@/lib/requests";
+import {
+  statusBadgeClass,
+  priorityBadgeClass,
+  ATTENTION_BADGE_CLASS,
+  CRITICAL_BADGE_CLASS,
+  NEUTRAL_BADGE_CLASS,
+} from "@/lib/badges";
 
 export default async function WorkbenchPage() {
   const requests = await prisma.marketingRequest.findMany();
   const sorted = [...requests].sort(workbenchSort);
+  const openCount = requests.filter((r) => !isTerminalStatus(r.status)).length;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Workbench</h1>
-          <p className="text-sm text-zinc-500">
-            Every open request, what it needs, and what&apos;s aging.
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-xl font-semibold">Workbench</h1>
+            <p className="text-sm text-[var(--slate)]">
+              Every open request, what it needs, and what&apos;s aging.
+            </p>
+          </div>
+          {openCount > 0 && (
+            <span className="rounded-full bg-[var(--lime)] px-2.5 py-1 text-xs font-semibold text-[var(--midnight)]">
+              {openCount} open
+            </span>
+          )}
         </div>
         <Link
           href="/requests/new"
-          className="rounded bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white"
+          className="rounded bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
         >
           New request
         </Link>
       </div>
 
       {sorted.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--card-border)] bg-white p-8 text-center text-sm text-zinc-500">
+        <div className="rounded-lg border border-dashed border-[var(--card-border)] bg-white p-8 text-center text-sm text-[var(--slate)]">
           No requests yet.{" "}
-          <Link href="/requests/new" className="font-medium underline">
+          <Link href="/requests/new" className="font-medium text-[var(--accent)] underline">
             Submit the first one
           </Link>
           .
@@ -49,43 +65,43 @@ export default async function WorkbenchPage() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="font-medium">{request.title}</h2>
-                  <p className="text-sm text-zinc-500">
+                  <h2 className="font-medium text-[var(--ink)]">{request.title}</h2>
+                  <p className="text-sm text-[var(--slate)]">
                     {REQUEST_TYPE_LABELS[request.type]} · {request.requesterName}
                     {request.department ? ` · ${request.department}` : ""}
                   </p>
                 </div>
-                <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-medium text-[var(--accent)]">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusBadgeClass(request.status)}`}
+                >
                   {REQUEST_STATUS_LABELS[request.status]}
                 </span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                <span className="rounded border border-[var(--card-border)] px-2 py-0.5 text-zinc-500">
+                <span className={`rounded px-2 py-0.5 ${priorityBadgeClass(request.priority)}`}>
                   {REQUEST_PRIORITY_LABELS[request.priority]} priority
                 </span>
                 {request.dueDate && (
                   <span
-                    className={`rounded border px-2 py-0.5 ${
-                      isOverdue(request)
-                        ? "border-red-200 bg-red-50 text-red-700"
-                        : "border-[var(--card-border)] text-zinc-500"
+                    className={`rounded px-2 py-0.5 ${
+                      isOverdue(request) ? CRITICAL_BADGE_CLASS : NEUTRAL_BADGE_CLASS
                     }`}
                   >
                     Due {request.dueDate.toLocaleDateString(undefined, { timeZone: "UTC" })}
                   </span>
                 )}
                 {needsInfo(request) && (
-                  <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-700">
+                  <span className={`rounded px-2 py-0.5 ${ATTENTION_BADGE_CLASS}`}>
                     Missing info
                   </span>
                 )}
                 {isAging(request) && (
-                  <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-red-700">
+                  <span className={`rounded px-2 py-0.5 ${ATTENTION_BADGE_CLASS}`}>
                     Aging
                   </span>
                 )}
                 {request.owner && (
-                  <span className="rounded border border-[var(--card-border)] px-2 py-0.5 text-zinc-500">
+                  <span className={`rounded px-2 py-0.5 ${NEUTRAL_BADGE_CLASS}`}>
                     Owner: {request.owner}
                   </span>
                 )}

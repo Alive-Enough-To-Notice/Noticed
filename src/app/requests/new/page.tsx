@@ -10,10 +10,12 @@ export default function NewRequestPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold">New request</h1>
-        <p className="text-sm text-zinc-500">
-          One shared form for now — per-type question sets aren&apos;t built
-          yet.
+        <h1 className="text-xl font-semibold">Submit a marketing request</h1>
+        <p className="text-sm text-[var(--slate)]">
+          This is the link (or QR code) that goes out to anyone who needs
+          something from Marketing. It lands on the workbench, and Marketing
+          assigns who picks it up. One shared form for now — per-type
+          question sets aren&apos;t built yet.
         </p>
       </div>
 
@@ -106,7 +108,7 @@ export default function NewRequestPage() {
 
         <button
           type="submit"
-          className="mt-2 self-start rounded bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white"
+          className="mt-2 self-start rounded bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
         >
           Submit request
         </button>

@@ -15,16 +15,16 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body className="min-h-full flex flex-col">
-        <header className="border-b border-[var(--card-border)] bg-white">
+        <header className="border-b border-[var(--card-border)] bg-[var(--canvas)]">
           <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
             <Link href="/" className="text-lg font-semibold tracking-tight">
               <span style={{ color: "var(--accent)" }}>Noticed</span>
             </Link>
-            <nav className="flex gap-4 text-sm text-zinc-600">
-              <Link href="/" className="hover:text-zinc-900">
+            <nav className="flex gap-4 text-sm text-[var(--slate)]">
+              <Link href="/" className="hover:text-[var(--accent)]">
                 Workbench
               </Link>
-              <Link href="/requests/new" className="hover:text-zinc-900">
+              <Link href="/requests/new" className="hover:text-[var(--accent)]">
                 New request
               </Link>
             </nav>

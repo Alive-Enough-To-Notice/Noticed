@@ -1,15 +1,46 @@
 @import "tailwindcss";
 
-/* Cobalt + lime brand direction, not formally locked (see product memory).
-   Lime hex below is a placeholder pending the owner's final pick. */
+/* Noticed brand system — cobalt + lime only, everything else grounds them.
+   See product memory for the full rationale (hierarchy target: ~55% cold
+   white/blue frost, ~25% cobalt/midnight, ~10% neutrals, ≤10% lime). */
 :root {
-  --canvas: #f5f6fc;
-  --card-border: #dde0f3;
-  --ink: #171a35;
-  --accent: #2936b8;
-  --accent-soft: #eef0fb;
-  --lime: #84cc16;
-  --lime-soft: #eef7dc;
+  /* Primary */
+  --cobalt: #2936b8;
+  --cobalt-bright: #4654b8; /* hover/selected */
+  --midnight: #171a35;
+
+  /* Accent */
+  --lime: #9ad51b;
+  --lime-dark: #628f16;
+
+  /* Tints */
+  --periwinkle-ice: #e2e5ff;
+  --lime-wash: #ecf7ce;
+
+  /* Neutrals */
+  --cold-white: #f8f9f5;
+  --blue-frost: #f1f3fa;
+  --cool-mist: #d9dde8;
+  --slate: #687086;
+  --ink: #20243b;
+
+  /* Functional (interface signals, not brand hues) */
+  --success: #16785c;
+  --success-soft: #e2f3ee;
+  --info: #397bc6;
+  --info-soft: #e7f0fa;
+  --attention: #df6959;
+  --attention-soft: #fbeae7;
+  --critical: #b83b4d;
+  --critical-soft: #f6e1e5;
+
+  /* Semantic aliases used across components */
+  --canvas: var(--cold-white);
+  --panel: var(--blue-frost);
+  --card-border: var(--cool-mist);
+  --accent: var(--cobalt);
+  --accent-hover: var(--cobalt-bright);
+  --accent-soft: var(--periwinkle-ice);
 }
 
 html {
