@@ -44,6 +44,9 @@ export default function RootLayout({
               <Link href="/brand" className="hover:text-[var(--accent)]">
                 Brand
               </Link>
+              <Link href="/destinations" className="hover:text-[var(--accent)]">
+                Destinations
+              </Link>
             </nav>
           </div>
         </header>

@@ -1,4 +1,5 @@
 import type { RequestStatus, RequestPriority, DraftStatus } from "@/generated/prisma/client";
+import type { PublishCapability } from "./destinations";
 
 // Centralized so the workbench list and request detail page never drift —
 // maps each status/priority onto the brand's functional colors (lime marks
@@ -36,4 +37,17 @@ export const NEUTRAL_BADGE_CLASS = "border border-[var(--card-border)] text-[var
 export function draftStatusBadgeClass(status: DraftStatus): string {
   if (status === "APPROVED") return "bg-[var(--lime)] text-[var(--midnight)]";
   return "bg-[var(--accent-soft)] text-[var(--accent)]";
+}
+
+export function capabilityBadgeClass(capability: PublishCapability): string {
+  switch (capability) {
+    case "DIRECT":
+      return "bg-[var(--success-soft)] text-[var(--success)]";
+    case "CONFIRM":
+      return "bg-[var(--info-soft)] text-[var(--info)]";
+    case "EXPORT":
+      return "bg-[var(--attention-soft)] text-[var(--attention)]";
+    case "UNAVAILABLE":
+      return "bg-[var(--critical-soft)] text-[var(--critical)]";
+  }
 }
