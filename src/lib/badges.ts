@@ -1,4 +1,4 @@
-import type { RequestStatus, RequestPriority } from "@/generated/prisma/client";
+import type { RequestStatus, RequestPriority, DraftStatus } from "@/generated/prisma/client";
 
 // Centralized so the workbench list and request detail page never drift —
 // maps each status/priority onto the brand's functional colors (lime marks
@@ -30,3 +30,10 @@ export function priorityBadgeClass(priority: RequestPriority): string {
 export const ATTENTION_BADGE_CLASS = "bg-[var(--attention-soft)] text-[var(--attention)]";
 export const CRITICAL_BADGE_CLASS = "bg-[var(--critical-soft)] text-[var(--critical)]";
 export const NEUTRAL_BADGE_CLASS = "border border-[var(--card-border)] text-[var(--slate)]";
+
+// APPROVED uses lime — "completed creative approvals" is one of the brand's
+// explicit named lime moments, not just another success state.
+export function draftStatusBadgeClass(status: DraftStatus): string {
+  if (status === "APPROVED") return "bg-[var(--lime)] text-[var(--midnight)]";
+  return "bg-[var(--accent-soft)] text-[var(--accent)]";
+}

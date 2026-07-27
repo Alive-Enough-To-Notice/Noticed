@@ -2,8 +2,15 @@ import type {
   RequestType,
   RequestPriority,
   RequestStatus,
+  ContentChannel,
   MarketingRequest,
 } from "@/generated/prisma/client";
+
+export const CONTENT_CHANNEL_LABELS: Record<ContentChannel, string> = {
+  BLOG: "Blog",
+  LINKEDIN: "LinkedIn",
+  X: "X",
+};
 
 export const REQUEST_TYPES: RequestType[] = [
   "CAMPAIGN",

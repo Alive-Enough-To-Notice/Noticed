@@ -5,15 +5,24 @@ import {
   REQUEST_STATUSES,
   REQUEST_STATUS_LABELS,
   REQUEST_PRIORITY_LABELS,
+  CONTENT_CHANNEL_LABELS,
   isOverdue,
 } from "@/lib/requests";
 import {
   statusBadgeClass,
   priorityBadgeClass,
+  draftStatusBadgeClass,
   CRITICAL_BADGE_CLASS,
   NEUTRAL_BADGE_CLASS,
 } from "@/lib/badges";
-import { updateStatus, assignOwner, setMissingInfo, addNote } from "./actions";
+import {
+  updateStatus,
+  assignOwner,
+  setMissingInfo,
+  addNote,
+  generateContent,
+  approveDraft,
+} from "./actions";
 
 export default async function RequestDetailPage({
   params,
@@ -24,7 +33,10 @@ export default async function RequestDetailPage({
 
   const request = await prisma.marketingRequest.findUnique({
     where: { id },
-    include: { activities: { orderBy: { createdAt: "desc" } } },
+    include: {
+      activities: { orderBy: { createdAt: "desc" } },
+      drafts: { orderBy: { createdAt: "asc" } },
+    },
   });
 
   if (!request) notFound();
@@ -33,6 +45,7 @@ export default async function RequestDetailPage({
   const assignOwnerWithId = assignOwner.bind(null, request.id);
   const setMissingInfoWithId = setMissingInfo.bind(null, request.id);
   const addNoteWithId = addNote.bind(null, request.id);
+  const generateContentWithId = generateContent.bind(null, request.id);
 
   return (
     <div className="flex flex-col gap-8">
@@ -148,6 +161,83 @@ export default async function RequestDetailPage({
           </form>
         </section>
       </div>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--slate)]">
+            Content drafts
+          </h2>
+          <form action={generateContentWithId}>
+            <button
+              type="submit"
+              className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
+            >
+              {request.drafts.length === 0 ? "Generate content" : "Regenerate drafts"}
+            </button>
+          </form>
+        </div>
+
+        {request.drafts.length === 0 ? (
+          <p className="text-sm text-[var(--slate)]">
+            No drafts yet — generate a blog post and channel-adapted social
+            posts from this request&apos;s brief. Requires the owner&apos;s
+            own Anthropic API key in <code>.env</code>.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-3">
+            {request.drafts.map((draft) => {
+              const approveDraftWithIds = approveDraft.bind(
+                null,
+                request.id,
+                draft.id,
+              );
+              return (
+                <div
+                  key={draft.id}
+                  className="flex flex-col gap-2 rounded-lg border border-[var(--card-border)] bg-white p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">
+                      {CONTENT_CHANNEL_LABELS[draft.channel]}
+                    </h3>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${draftStatusBadgeClass(draft.status)}`}
+                    >
+                      {draft.status === "APPROVED" ? "Approved" : "Draft"}
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm text-[var(--ink)]">
+                    {draft.body}
+                  </p>
+                  {draft.status === "APPROVED" ? (
+                    <p className="text-xs text-[var(--slate)]">
+                      Approved by {draft.approvedBy}
+                    </p>
+                  ) : (
+                    <form
+                      action={approveDraftWithIds}
+                      className="flex gap-2"
+                    >
+                      <input
+                        name="approvedBy"
+                        placeholder="Your name"
+                        required
+                        className="flex-1 rounded border border-[var(--card-border)] px-2 py-1.5 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        className="rounded bg-[var(--lime)] px-3 py-1.5 text-sm font-medium text-[var(--midnight)] hover:bg-[var(--lime-dark)] hover:text-white"
+                      >
+                        Approve
+                      </button>
+                    </form>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--slate)]">

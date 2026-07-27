@@ -62,6 +62,7 @@ model MarketingRequest {
   updatedAt     DateTime         @updatedAt
 
   activities Activity[]
+  drafts     ContentDraft[]
 }
 
 // Auto-logged on every status change, owner assignment, and note — the
@@ -74,4 +75,33 @@ model Activity {
   type               String
   message            String
   createdAt          DateTime         @default(now())
+}
+
+// Only three channels for now — enough to prove genuine per-channel
+// adaptation (blog vs. LinkedIn vs. X), not a full multichannel matrix yet.
+enum ContentChannel {
+  BLOG
+  LINKEDIN
+  X
+}
+
+enum DraftStatus {
+  DRAFT
+  APPROVED
+}
+
+// One request generates a package of channel-adapted drafts in one AI call —
+// the "one brief becomes a coordinated package" promise, scoped down to a
+// first, provable slice.
+model ContentDraft {
+  id         String           @id @default(cuid())
+  requestId  String
+  request    MarketingRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  channel    ContentChannel
+  body       String
+  status     DraftStatus      @default(DRAFT)
+  approvedBy String?
+  approvedAt DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
 }
