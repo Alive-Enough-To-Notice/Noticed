@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
 
@@ -17,8 +18,21 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <header className="border-b border-[var(--card-border)] bg-[var(--canvas)]">
           <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
-            <Link href="/" className="text-lg font-semibold tracking-tight">
-              <span style={{ color: "var(--accent)" }}>Noticed</span>
+            <Link href="/" className="flex items-center gap-2">
+              <Image
+                src="/logo-mark.png"
+                alt=""
+                width={40}
+                height={32}
+                className="h-8 w-auto"
+                priority
+              />
+              <span
+                className="text-lg font-semibold tracking-tight"
+                style={{ color: "var(--midnight)" }}
+              >
+                Noticed
+              </span>
             </Link>
             <nav className="flex gap-4 text-sm text-[var(--slate)]">
               <Link href="/" className="hover:text-[var(--accent)]">
