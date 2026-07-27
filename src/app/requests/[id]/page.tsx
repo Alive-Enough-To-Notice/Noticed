@@ -15,6 +15,8 @@ import {
   CRITICAL_BADGE_CLASS,
   NEUTRAL_BADGE_CLASS,
 } from "@/lib/badges";
+import { CHANNEL_DESTINATIONS } from "@/lib/publishers";
+import { DESTINATIONS } from "@/lib/destinations";
 import {
   updateStatus,
   assignOwner,
@@ -22,7 +24,12 @@ import {
   addNote,
   generateContent,
   approveDraft,
+  publishDraft,
 } from "./actions";
+
+const DESTINATION_LABELS = Object.fromEntries(
+  DESTINATIONS.map((d) => [d.key, d.label]),
+);
 
 export default async function RequestDetailPage({
   params,
@@ -35,7 +42,10 @@ export default async function RequestDetailPage({
     where: { id },
     include: {
       activities: { orderBy: { createdAt: "desc" } },
-      drafts: { orderBy: { createdAt: "asc" } },
+      drafts: {
+        orderBy: { createdAt: "asc" },
+        include: { publishAttempts: { orderBy: { createdAt: "desc" } } },
+      },
     },
   });
 
@@ -191,6 +201,12 @@ export default async function RequestDetailPage({
                 request.id,
                 draft.id,
               );
+              const publishDraftWithIds = publishDraft.bind(
+                null,
+                request.id,
+                draft.id,
+              );
+              const destinationKeys = CHANNEL_DESTINATIONS[draft.channel] ?? [];
               return (
                 <div
                   key={draft.id}
@@ -231,6 +247,48 @@ export default async function RequestDetailPage({
                         Approve
                       </button>
                     </form>
+                  )}
+
+                  {draft.status === "APPROVED" && destinationKeys.length > 0 && (
+                    <form action={publishDraftWithIds} className="flex gap-2 border-t border-[var(--card-border)] pt-2">
+                      <select
+                        name="destination"
+                        required
+                        className="flex-1 rounded border border-[var(--card-border)] px-2 py-1.5 text-sm"
+                      >
+                        {destinationKeys.map((key) => (
+                          <option key={key} value={key}>
+                            {DESTINATION_LABELS[key] ?? key}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="submit"
+                        className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
+                      >
+                        Publish
+                      </button>
+                    </form>
+                  )}
+
+                  {draft.publishAttempts.length > 0 && (
+                    <div className="flex flex-col gap-1 border-t border-[var(--card-border)] pt-2">
+                      {draft.publishAttempts.map((attempt) => (
+                        <div
+                          key={attempt.id}
+                          className={`rounded px-2 py-1 text-xs ${
+                            attempt.success
+                              ? "bg-[var(--success-soft)] text-[var(--success)]"
+                              : "bg-[var(--critical-soft)] text-[var(--critical)]"
+                          }`}
+                        >
+                          {DESTINATION_LABELS[attempt.destination] ?? attempt.destination}:{" "}
+                          {attempt.success
+                            ? attempt.url ?? "published"
+                            : attempt.error}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               );

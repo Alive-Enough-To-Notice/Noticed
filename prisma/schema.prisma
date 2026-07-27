@@ -104,6 +104,23 @@ model ContentDraft {
   approvedAt DateTime?
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
+
+  publishAttempts PublishAttempt[]
+}
+
+// The "verification and operational memory" the product spec calls for —
+// what published, where, and what failed. One row per publish click, success
+// or failure, so a broken/expired credential shows up honestly instead of
+// silently doing nothing.
+model PublishAttempt {
+  id          String       @id @default(cuid())
+  draftId     String
+  draft       ContentDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  destination String
+  success     Boolean
+  url         String?
+  error       String?
+  createdAt   DateTime     @default(now())
 }
 
 // Singleton (fixed id "brand") — Noticed serves one company, not multiple

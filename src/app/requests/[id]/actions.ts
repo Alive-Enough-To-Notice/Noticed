@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { REQUEST_STATUS_LABELS } from "@/lib/requests";
 import { generateContentPackage } from "@/lib/content-generator";
+import { publish, type PublishableDestinationKey } from "@/lib/publishers";
 import type { RequestStatus } from "@/generated/prisma/client";
 
 export async function updateStatus(requestId: string, formData: FormData) {
@@ -143,6 +144,60 @@ export async function approveDraft(
       message: `${draft.channel} draft approved by ${approvedBy}`,
     },
   });
+
+  revalidatePath(`/requests/${requestId}`);
+}
+
+// Records a PublishAttempt either way — success or failure — so a broken or
+// missing credential shows up as an honest record, not a silent no-op.
+export async function publishDraft(
+  requestId: string,
+  draftId: string,
+  formData: FormData,
+) {
+  const destination = String(
+    formData.get("destination") ?? "",
+  ) as PublishableDestinationKey;
+  if (!destination) throw new Error("Destination is required");
+
+  const draft = await prisma.contentDraft.findUniqueOrThrow({
+    where: { id: draftId },
+    include: { request: true },
+  });
+
+  try {
+    const result = await publish(destination, {
+      title: draft.request.title,
+      body: draft.body,
+    });
+
+    await prisma.$transaction([
+      prisma.publishAttempt.create({
+        data: { draftId, destination, success: true, url: result.url ?? result.id },
+      }),
+      prisma.activity.create({
+        data: {
+          marketingRequestId: requestId,
+          type: "PUBLISHED",
+          message: `Published ${draft.channel} draft to ${destination}${result.url ? ` — ${result.url}` : ""}`,
+        },
+      }),
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await prisma.$transaction([
+      prisma.publishAttempt.create({
+        data: { draftId, destination, success: false, error: message },
+      }),
+      prisma.activity.create({
+        data: {
+          marketingRequestId: requestId,
+          type: "PUBLISH_FAILED",
+          message: `Publishing ${draft.channel} draft to ${destination} failed: ${message}`,
+        },
+      }),
+    ]);
+  }
 
   revalidatePath(`/requests/${requestId}`);
 }
