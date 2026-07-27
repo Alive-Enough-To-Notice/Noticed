@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# local SQLite database — regenerate with `npx prisma migrate deploy`
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# AI-assistant reference skills auto-installed by `prisma init`, not project source
+.agents/
+.windsurf/
+.claude/skills/
+skills-lock.json

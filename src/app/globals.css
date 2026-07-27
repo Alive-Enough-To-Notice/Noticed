@@ -1,26 +1,43 @@
 @import "tailwindcss";
 
+/* Cobalt + lime brand direction, not formally locked (see product memory).
+   Lime hex below is a placeholder pending the owner's final pick. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #f5f6fc;
+  --card-border: #dde0f3;
+  --ink: #171a35;
+  --accent: #2936b8;
+  --accent-soft: #eef0fb;
+  --lime: #84cc16;
+  --lime-soft: #eef7dc;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html {
+  height: 100%;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100%;
+  color: var(--ink);
+  background: var(--canvas);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  accent-color: var(--accent);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
 }
