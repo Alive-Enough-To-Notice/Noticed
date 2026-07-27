@@ -88,13 +88,17 @@ export async function generateContent(requestId: string) {
   const request = await prisma.marketingRequest.findUniqueOrThrow({
     where: { id: requestId },
   });
+  const brand = await prisma.brandProfile.findUnique({ where: { id: "brand" } });
 
-  const contentPackage = await generateContentPackage({
-    type: request.type,
-    title: request.title,
-    description: request.description,
-    department: request.department,
-  });
+  const contentPackage = await generateContentPackage(
+    {
+      type: request.type,
+      title: request.title,
+      description: request.description,
+      department: request.department,
+    },
+    brand,
+  );
 
   await prisma.$transaction([
     prisma.contentDraft.deleteMany({

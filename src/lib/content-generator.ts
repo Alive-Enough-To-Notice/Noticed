@@ -13,6 +13,16 @@ export type RequestBrief = {
   department: string | null;
 };
 
+// Optional and every field nullable — brand memory (/brand) may not be
+// filled in yet, so generation must still work with none of this set.
+export type BrandContext = {
+  voice: string | null;
+  audiences: string | null;
+  positioning: string | null;
+  approvedLanguage: string | null;
+  prohibitedLanguage: string | null;
+} | null;
+
 const GENERATE_TOOL: Anthropic.Tool = {
   name: "generate_content_package",
   description:
@@ -40,11 +50,27 @@ const GENERATE_TOOL: Anthropic.Tool = {
   },
 };
 
-// No persistent brand-voice memory yet (that's area 4 in the product spec,
-// not built) — each call is grounded only in the request's own brief, with
-// generic-but-firm instructions against reusing one caption across channels.
+function buildSystemPrompt(brand: BrandContext): string {
+  const base =
+    "You are a marketing copywriter. Genuinely adapt tone, length, and structure per channel — never reuse the same copy across formats. No corporate-jargon filler.";
+
+  if (!brand) return base;
+
+  const lines: string[] = [];
+  if (brand.voice) lines.push(`Brand voice: ${brand.voice}`);
+  if (brand.audiences) lines.push(`Audiences: ${brand.audiences}`);
+  if (brand.positioning) lines.push(`Positioning: ${brand.positioning}`);
+  if (brand.approvedLanguage) lines.push(`Use language like: ${brand.approvedLanguage}`);
+  if (brand.prohibitedLanguage) lines.push(`Never use language like: ${brand.prohibitedLanguage}`);
+
+  if (lines.length === 0) return base;
+
+  return `${base}\n\nBrand memory to stay consistent with:\n${lines.join("\n")}`;
+}
+
 export async function generateContentPackage(
   brief: RequestBrief,
+  brand: BrandContext = null,
 ): Promise<ContentPackage> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -57,8 +83,7 @@ export async function generateContentPackage(
   const message = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 1500,
-    system:
-      "You are a marketing copywriter. Genuinely adapt tone, length, and structure per channel — never reuse the same copy across formats. No corporate-jargon filler.",
+    system: buildSystemPrompt(brand),
     tools: [GENERATE_TOOL],
     tool_choice: { type: "tool", name: "generate_content_package" },
     messages: [

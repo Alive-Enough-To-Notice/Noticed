@@ -105,3 +105,19 @@ model ContentDraft {
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
 }
+
+// Singleton (fixed id "brand") — Noticed serves one company, not multiple
+// tenants, so there's exactly one brand to remember. Scoped to the textual
+// voice/positioning fields that actually feed the content-generation prompt;
+// logos/colors/typography already live as real assets (public/logo-*.png,
+// globals.css) and version history / prior-campaign-results are a much
+// bigger, undecided piece of area 4 — not built here.
+model BrandProfile {
+  id                 String   @id @default("brand")
+  voice              String?
+  audiences          String?
+  positioning        String?
+  approvedLanguage   String?
+  prohibitedLanguage String?
+  updatedAt          DateTime @updatedAt
+}

@@ -41,6 +41,9 @@ export default function RootLayout({
               <Link href="/requests/new" className="hover:text-[var(--accent)]">
                 New request
               </Link>
+              <Link href="/brand" className="hover:text-[var(--accent)]">
+                Brand
+              </Link>
             </nav>
           </div>
         </header>
