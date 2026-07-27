@@ -9,3 +9,69 @@ generator client {
 datasource db {
   provider = "sqlite"
 }
+
+// The requester's ask — kept intentionally broad since one form covers all
+// twelve request types for now; per-type question sets are a documented gap.
+enum RequestType {
+  CAMPAIGN
+  WEBSITE_CHANGE
+  BLOG_OR_SOCIAL_CONTENT
+  CUSTOMER_EMAIL
+  ADVERTISEMENT
+  LOGO_OR_CREATIVE_ASSET
+  PRINT_COLLATERAL
+  RECRUITING_SUPPORT
+  JOB_FAIR_OR_EVENT
+  PROMOTIONAL_PRODUCT
+  PHOTO_OR_VIDEO
+  SPONSORSHIP
+}
+
+enum RequestPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum RequestStatus {
+  NEW
+  IN_PROGRESS
+  BLOCKED
+  IN_APPROVAL
+  COMPLETED
+  REJECTED
+}
+
+// The central object of the whole product: the request/campaign/business
+// change, not the individual channel post. Everything else (creation,
+// approval, publishing, verification) hangs off this spine.
+model MarketingRequest {
+  id            String           @id @default(cuid())
+  type          RequestType
+  title         String
+  description   String?
+  requesterName String
+  department    String?
+  priority      RequestPriority  @default(NORMAL)
+  status        RequestStatus    @default(NEW)
+  owner         String?
+  missingInfo   String?
+  dueDate       DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  activities Activity[]
+}
+
+// Auto-logged on every status change, owner assignment, and note — the
+// lightweight automation/timeline engine, same pattern as every other
+// product in this family.
+model Activity {
+  id                 String           @id @default(cuid())
+  marketingRequestId String
+  marketingRequest   MarketingRequest @relation(fields: [marketingRequestId], references: [id], onDelete: Cascade)
+  type               String
+  message            String
+  createdAt          DateTime         @default(now())
+}

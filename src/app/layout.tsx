@@ -20,6 +20,14 @@ export default function RootLayout({
             <Link href="/" className="text-lg font-semibold tracking-tight">
               <span style={{ color: "var(--accent)" }}>Noticed</span>
             </Link>
+            <nav className="flex gap-4 text-sm text-zinc-600">
+              <Link href="/" className="hover:text-zinc-900">
+                Workbench
+              </Link>
+              <Link href="/requests/new" className="hover:text-zinc-900">
+                New request
+              </Link>
+            </nav>
           </div>
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
