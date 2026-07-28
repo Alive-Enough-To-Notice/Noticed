@@ -35,6 +35,9 @@ export default function RootLayout({
               </span>
             </Link>
             <nav className="flex gap-4 text-sm text-[var(--slate)]">
+              <Link href="/studio" className="hover:text-[var(--accent)]">
+                Studio
+              </Link>
               <Link href="/" className="hover:text-[var(--accent)]">
                 Workbench
               </Link>

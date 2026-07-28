@@ -153,13 +153,21 @@ model ContentProject {
 // decided whether it becomes a blog, a podcast, or a social post. Brand is
 // required directly (same pattern as MarketingRequest/KnowledgeRecord —
 // the true entry-point models get a direct brandId).
+enum IdeaStatus {
+  CAPTURED
+  DEVELOPING
+  PROMOTED
+  ARCHIVED
+}
+
 model Idea {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   brandId   String
-  brand     Brand    @relation(fields: [brandId], references: [id])
+  brand     Brand      @relation(fields: [brandId], references: [id])
   content   String
   source    String?
-  createdAt DateTime @default(now())
+  status    IdeaStatus @default(CAPTURED)
+  createdAt DateTime   @default(now())
 
   contentProjects IdeaContentProject[]
 }

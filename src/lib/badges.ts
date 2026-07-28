@@ -3,6 +3,7 @@ import type {
   RequestPriority,
   DraftStatus,
   KnowledgeStatus,
+  IdeaStatus,
 } from "@/generated/prisma/client";
 import type { PublishCapability } from "./destinations";
 
@@ -52,6 +53,19 @@ export function knowledgeStatusBadgeClass(status: KnowledgeStatus): string {
       return "bg-[var(--info-soft)] text-[var(--info)]";
     case "DEPRECATED":
       return "border border-[var(--card-border)] text-[var(--slate)]";
+  }
+}
+
+export function ideaStatusBadgeClass(status: IdeaStatus): string {
+  switch (status) {
+    case "CAPTURED":
+      return "bg-[var(--info-soft)] text-[var(--info)]";
+    case "DEVELOPING":
+      return "bg-[var(--accent-soft)] text-[var(--accent)]";
+    case "PROMOTED":
+      return "bg-[var(--success-soft)] text-[var(--success)]";
+    case "ARCHIVED":
+      return NEUTRAL_BADGE_CLASS;
   }
 }
 
