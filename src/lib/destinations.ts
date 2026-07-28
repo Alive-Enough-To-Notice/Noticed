@@ -129,12 +129,12 @@ export const DESTINATIONS: Destination[] = [
       "Posting as an organization needs LinkedIn's Marketing Developer Platform approval — reserved for enterprise partners, a real gate with no single-owner bypass (unlike Meta's dev-mode/tester model).",
   },
   {
-    key: "substack",
-    label: "Substack",
-    capability: "EXPORT",
-    built: false,
+    key: "substack-narrareach",
+    label: "Substack (via Narrareach)",
+    capability: "DIRECT",
+    built: true,
     notes:
-      "Substack has no public publishing API — its 2026 Developer API only covers profile lookup. Best honest option is a prepared draft for manual copy/paste, not a real integration.",
+      "Corrected 2026-07-28: Substack itself still has no public publish API, BUT Narrareach (narrareach.com) already maintains a working Substack connection and exposes it through its own REST API — the owner already has an active account with @cortnilawson connected. Needs NARRAREACH_API_TOKEN. Schedules ~1 min out rather than instant-publishing (Narrareach's API is schedule-based) — recorded as \"scheduled,\" not confirmed-delivered; verifying actual delivery would mean polling Narrareach's operation-status endpoint, not built yet.",
   },
   {
     key: "medium",

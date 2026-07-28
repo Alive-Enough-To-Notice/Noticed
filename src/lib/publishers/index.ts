@@ -7,6 +7,7 @@ import { publishToReddit } from "./reddit";
 import { publishToFacebook } from "./facebook";
 import { publishToLinkedIn } from "./linkedin";
 import { publishToX } from "./x";
+import { publishToSubstackViaNarrareach } from "./narrareach";
 
 export type PublishableDestinationKey =
   | "bluesky"
@@ -16,7 +17,8 @@ export type PublishableDestinationKey =
   | "reddit"
   | "facebook"
   | "linkedin-personal"
-  | "x";
+  | "x"
+  | "substack-narrareach";
 
 // Maps a destination + a draft's (title, body) onto the right publisher and
 // argument shape for that platform's post format.
@@ -41,6 +43,8 @@ export async function publish(
       return publishToFacebook(args.body);
     case "linkedin-personal":
       return publishToLinkedIn(args.body);
+    case "substack-narrareach":
+      return publishToSubstackViaNarrareach(args.title, args.body);
   }
 }
 
@@ -48,7 +52,7 @@ export async function publish(
 // have a title + long body (blog-shaped platforms), LINKEDIN drafts are
 // medium-length professional text, X drafts are short-form microblog text.
 export const CHANNEL_DESTINATIONS: Record<string, PublishableDestinationKey[]> = {
-  BLOG: ["wordpress", "ghost", "reddit"],
+  BLOG: ["wordpress", "ghost", "reddit", "substack-narrareach"],
   LINKEDIN: ["linkedin-personal", "facebook"],
   X: ["x", "bluesky", "mastodon"],
 };
