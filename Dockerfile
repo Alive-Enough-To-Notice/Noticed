@@ -43,10 +43,12 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src/generated ./src/generated
+RUN mkdir -p /app/scripts
+COPY --from=builder /app/scripts/seed-brands-runtime.js ./scripts/seed-brands-runtime.js
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Entrypoint: migrate SQLite on volume, then start
+# Entrypoint: migrate SQLite on volume, seed brands, then start
 COPY --chown=nextjs:nodejs scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
