@@ -41,6 +41,9 @@ export default function RootLayout({
               <Link href="/calendar" className="hover:text-[var(--accent)]">
                 Calendar
               </Link>
+              <Link href="/podcast" className="hover:text-[var(--accent)]">
+                Podcast
+              </Link>
               <Link href="/requests/new" className="hover:text-[var(--accent)]">
                 New request
               </Link>

@@ -6,7 +6,12 @@ import {
   REQUEST_PRIORITY_LABELS,
 } from "@/lib/requests";
 
-export default function NewRequestPage() {
+export default async function NewRequestPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ title?: string; description?: string }>;
+}) {
+  const { title, description } = await searchParams;
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -47,6 +52,7 @@ export default function NewRequestPage() {
           <input
             name="title"
             required
+            defaultValue={title ?? ""}
             placeholder="Spring open-house campaign"
             className="rounded border border-[var(--card-border)] px-3 py-2 text-sm"
           />
@@ -57,6 +63,7 @@ export default function NewRequestPage() {
           <textarea
             name="description"
             rows={4}
+            defaultValue={description ?? ""}
             placeholder="What's the business need behind this? What should come out the other end?"
             className="rounded border border-[var(--card-border)] px-3 py-2 text-sm"
           />
