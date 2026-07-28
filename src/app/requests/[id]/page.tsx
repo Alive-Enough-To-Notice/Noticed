@@ -44,7 +44,10 @@ export default async function RequestDetailPage({
       activities: { orderBy: { createdAt: "desc" } },
       drafts: {
         orderBy: { createdAt: "asc" },
-        include: { publishAttempts: { orderBy: { createdAt: "desc" } } },
+        include: {
+          publishAttempts: { orderBy: { createdAt: "desc" } },
+          knowledgeLinks: { include: { knowledgeRecord: true } },
+        },
       },
     },
   });
@@ -225,6 +228,38 @@ export default async function RequestDetailPage({
                   <p className="whitespace-pre-wrap text-sm text-[var(--ink)]">
                     {draft.body}
                   </p>
+
+                  {draft.knowledgeLinks.length > 0 && (
+                    <p className="text-xs text-[var(--slate)]">
+                      Informed by: {draft.knowledgeLinks.map((l) => l.knowledgeRecord.title).join(", ")}
+                    </p>
+                  )}
+
+                  {draft.complianceFlag && (() => {
+                    let violations: Array<{ channel: string; rule: string; quote: string }> = [];
+                    try {
+                      violations = JSON.parse(draft.complianceFlag);
+                    } catch {
+                      violations = [];
+                    }
+                    return (
+                      <div className="rounded border border-[var(--attention)] bg-[var(--attention-soft)] p-2 text-xs text-[var(--attention)]">
+                        <p className="font-semibold">Compliance check flagged this draft:</p>
+                        {violations.length > 0 ? (
+                          <ul className="mt-1 list-disc pl-4">
+                            {violations.map((v, i) => (
+                              <li key={i}>
+                                {v.rule}: &quot;{v.quote}&quot; ({v.channel})
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p>Details unavailable — treat as unverified.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {draft.status === "APPROVED" ? (
                     <p className="text-xs text-[var(--slate)]">
                       Approved by {draft.approvedBy}
@@ -232,19 +267,27 @@ export default async function RequestDetailPage({
                   ) : (
                     <form
                       action={approveDraftWithIds}
-                      className="flex gap-2"
+                      className="flex flex-col gap-2"
                     >
                       <input
                         name="approvedBy"
                         placeholder="Your name"
                         required
-                        className="flex-1 rounded border border-[var(--card-border)] px-2 py-1.5 text-sm"
+                        className="rounded border border-[var(--card-border)] px-2 py-1.5 text-sm"
                       />
+                      {draft.complianceFlag && (
+                        <input
+                          name="overrideReason"
+                          placeholder="Required: why are you approving despite the flag?"
+                          required
+                          className="rounded border border-[var(--attention)] px-2 py-1.5 text-sm"
+                        />
+                      )}
                       <button
                         type="submit"
-                        className="rounded bg-[var(--lime)] px-3 py-1.5 text-sm font-medium text-[var(--midnight)] hover:bg-[var(--lime-dark)] hover:text-white"
+                        className="self-start rounded bg-[var(--lime)] px-3 py-1.5 text-sm font-medium text-[var(--midnight)] hover:bg-[var(--lime-dark)] hover:text-white"
                       >
-                        Approve
+                        {draft.complianceFlag ? "Approve anyway" : "Approve"}
                       </button>
                     </form>
                   )}

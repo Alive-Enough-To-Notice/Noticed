@@ -102,10 +102,20 @@ model ContentDraft {
   status     DraftStatus      @default(DRAFT)
   approvedBy String?
   approvedAt DateTime?
+
+  // Set by an independent second AI call that checks the generated package
+  // against every APPROVED PROHIBITED_CLAIM/PROHIBITED_TERM record — null
+  // means clean. Non-null blocks the normal one-field approval form; the
+  // approver must supply an override reason instead, so a flag can't just
+  // be silently dismissed.
+  complianceFlag      String?
+  complianceCheckedAt DateTime?
+
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
 
   publishAttempts PublishAttempt[]
+  knowledgeLinks  ContentDraftKnowledgeRecord[]
 }
 
 // The "verification and operational memory" the product spec calls for —
@@ -123,18 +133,73 @@ model PublishAttempt {
   createdAt   DateTime     @default(now())
 }
 
-// Singleton (fixed id "brand") — Noticed serves one company, not multiple
-// tenants, so there's exactly one brand to remember. Scoped to the textual
-// voice/positioning fields that actually feed the content-generation prompt;
-// logos/colors/typography already live as real assets (public/logo-*.png,
-// globals.css) and version history / prior-campaign-results are a much
-// bigger, undecided piece of area 4 — not built here.
-model BrandProfile {
-  id                 String   @id @default("brand")
-  voice              String?
-  audiences          String?
-  positioning        String?
-  approvedLanguage   String?
-  prohibitedLanguage String?
-  updatedAt          DateTime @updatedAt
+// Replaces the old BrandProfile free-text blob (2026-07-27) — a single
+// prose field has no source, no status, no way to distinguish "the owner
+// approved this" from "the AI invented this," which is exactly how
+// "litigation-ready" ended up in a draft undetected. Every fact/rule/claim
+// is its own row instead, so it can be individually sourced, approved,
+// deprecated, and checked against.
+//
+// No workspace/tenant fields — Noticed is single-owner/local right now
+// (see [[project_noticed]] memory), so every record implicitly belongs to
+// the one brand being managed. Deliberately NOT building multi-tenant
+// scoping for a database with one user; that's a real rebuild for if/when
+// productization happens, not an incremental add now.
+enum KnowledgeType {
+  COMPANY_FACT
+  AUDIENCE
+  VOICE_RULE
+  POSITIONING
+  APPROVED_TERM
+  PROHIBITED_TERM
+  APPROVED_CLAIM
+  PROHIBITED_CLAIM
+  OFFER
+  STANDING_INSTRUCTION
+  SOURCE_DOCUMENT
+}
+
+enum KnowledgeStatus {
+  PROPOSED
+  APPROVED
+  DEPRECATED
+}
+
+model KnowledgeRecord {
+  id        String          @id @default(cuid())
+  type      KnowledgeType
+  title     String
+  content   String
+  source    String?
+  status    KnowledgeStatus @default(PROPOSED)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  draftLinks ContentDraftKnowledgeRecord[]
+  activities KnowledgeRecordActivity[]
+}
+
+// Same auto-log pattern as Activity/PublishAttempt elsewhere in the app —
+// every status change and edit gets a row, so knowledge governance has the
+// same audit trail as everything else.
+model KnowledgeRecordActivity {
+  id                String          @id @default(cuid())
+  knowledgeRecordId String
+  knowledgeRecord   KnowledgeRecord @relation(fields: [knowledgeRecordId], references: [id], onDelete: Cascade)
+  message           String
+  createdAt         DateTime        @default(now())
+}
+
+// Lineage: which approved knowledge was in scope when a draft was
+// generated. Scoped honestly — this records "these records were part of
+// the generation context," not per-sentence attribution (the model isn't
+// asked to cite which fact produced which line; that's a real limitation).
+model ContentDraftKnowledgeRecord {
+  id                String          @id @default(cuid())
+  contentDraftId    String
+  contentDraft      ContentDraft    @relation(fields: [contentDraftId], references: [id], onDelete: Cascade)
+  knowledgeRecordId String
+  knowledgeRecord   KnowledgeRecord @relation(fields: [knowledgeRecordId], references: [id], onDelete: Cascade)
+
+  @@unique([contentDraftId, knowledgeRecordId])
 }

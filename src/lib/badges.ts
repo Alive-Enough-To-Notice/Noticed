@@ -1,4 +1,9 @@
-import type { RequestStatus, RequestPriority, DraftStatus } from "@/generated/prisma/client";
+import type {
+  RequestStatus,
+  RequestPriority,
+  DraftStatus,
+  KnowledgeStatus,
+} from "@/generated/prisma/client";
 import type { PublishCapability } from "./destinations";
 
 // Centralized so the workbench list and request detail page never drift —
@@ -37,6 +42,17 @@ export const NEUTRAL_BADGE_CLASS = "border border-[var(--card-border)] text-[var
 export function draftStatusBadgeClass(status: DraftStatus): string {
   if (status === "APPROVED") return "bg-[var(--lime)] text-[var(--midnight)]";
   return "bg-[var(--accent-soft)] text-[var(--accent)]";
+}
+
+export function knowledgeStatusBadgeClass(status: KnowledgeStatus): string {
+  switch (status) {
+    case "APPROVED":
+      return "bg-[var(--success-soft)] text-[var(--success)]";
+    case "PROPOSED":
+      return "bg-[var(--info-soft)] text-[var(--info)]";
+    case "DEPRECATED":
+      return "border border-[var(--card-border)] text-[var(--slate)]";
+  }
 }
 
 export function capabilityBadgeClass(capability: PublishCapability): string {

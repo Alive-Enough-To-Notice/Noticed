@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { REQUEST_STATUS_LABELS } from "@/lib/requests";
-import { generateContentPackage } from "@/lib/content-generator";
+import { PROHIBITIVE_TYPES } from "@/lib/knowledge";
+import { generateContentPackage, checkCompliance } from "@/lib/content-generator";
 import { publish, type PublishableDestinationKey } from "@/lib/publishers";
 import type { RequestStatus } from "@/generated/prisma/client";
 
@@ -89,7 +90,9 @@ export async function generateContent(requestId: string) {
   const request = await prisma.marketingRequest.findUniqueOrThrow({
     where: { id: requestId },
   });
-  const brand = await prisma.brandProfile.findUnique({ where: { id: "brand" } });
+  const approvedKnowledge = await prisma.knowledgeRecord.findMany({
+    where: { status: "APPROVED" },
+  });
 
   const contentPackage = await generateContentPackage(
     {
@@ -98,29 +101,53 @@ export async function generateContent(requestId: string) {
       description: request.description,
       department: request.department,
     },
-    brand,
+    approvedKnowledge,
   );
 
-  await prisma.$transaction([
-    prisma.contentDraft.deleteMany({
-      where: { requestId, status: "DRAFT" },
-    }),
-    prisma.contentDraft.createMany({
-      data: [
-        { requestId, channel: "BLOG", body: contentPackage.blog },
-        { requestId, channel: "LINKEDIN", body: contentPackage.linkedin },
-        { requestId, channel: "X", body: contentPackage.x },
-      ],
-    }),
-    prisma.activity.create({
-      data: {
-        marketingRequestId: requestId,
-        type: "CONTENT_GENERATED",
-        message: "Draft package generated (blog, LinkedIn, X)",
-      },
-    }),
-  ]);
+  const prohibitedRecords = approvedKnowledge.filter((r) =>
+    PROHIBITIVE_TYPES.includes(r.type),
+  );
+  const compliance = await checkCompliance(contentPackage, prohibitedRecords);
+  const complianceFlag = compliance.clean
+    ? null
+    : JSON.stringify(compliance.violations);
 
+  await prisma.contentDraft.deleteMany({ where: { requestId, status: "DRAFT" } });
+
+  const created = await Promise.all(
+    (
+      [
+        ["BLOG", contentPackage.blog],
+        ["LINKEDIN", contentPackage.linkedin],
+        ["X", contentPackage.x],
+      ] as const
+    ).map(([channel, body]) =>
+      prisma.contentDraft.create({
+        data: {
+          requestId,
+          channel,
+          body,
+          complianceFlag,
+          complianceCheckedAt: new Date(),
+          knowledgeLinks: {
+            create: approvedKnowledge.map((k) => ({ knowledgeRecordId: k.id })),
+          },
+        },
+      }),
+    ),
+  );
+
+  await prisma.activity.create({
+    data: {
+      marketingRequestId: requestId,
+      type: "CONTENT_GENERATED",
+      message: compliance.clean
+        ? `Draft package generated (blog, LinkedIn, X) — compliance check clean, ${approvedKnowledge.length} knowledge record(s) in scope`
+        : `Draft package generated (blog, LinkedIn, X) — compliance check flagged ${compliance.violations.length} possible issue(s), review required before approval`,
+    },
+  });
+
+  void created;
   revalidatePath(`/requests/${requestId}`);
 }
 
@@ -130,7 +157,21 @@ export async function approveDraft(
   formData: FormData,
 ) {
   const approvedBy = String(formData.get("approvedBy") ?? "").trim();
+  const overrideReason = String(formData.get("overrideReason") ?? "").trim();
   if (!approvedBy) throw new Error("Your name is required to approve a draft");
+
+  const existing = await prisma.contentDraft.findUniqueOrThrow({
+    where: { id: draftId },
+  });
+
+  // A flagged draft can't be approved through the normal one-field path —
+  // the approver must explicitly say why they're overriding the compliance
+  // check, so the flag can't just be quietly clicked past.
+  if (existing.complianceFlag && !overrideReason) {
+    throw new Error(
+      "This draft was flagged by the compliance check. You must provide an override reason to approve it anyway.",
+    );
+  }
 
   const draft = await prisma.contentDraft.update({
     where: { id: draftId },
@@ -141,7 +182,9 @@ export async function approveDraft(
     data: {
       marketingRequestId: requestId,
       type: "DRAFT_APPROVED",
-      message: `${draft.channel} draft approved by ${approvedBy}`,
+      message: existing.complianceFlag
+        ? `${draft.channel} draft approved by ${approvedBy} OVERRIDING a compliance flag — reason: ${overrideReason}`
+        : `${draft.channel} draft approved by ${approvedBy}`,
     },
   });
 
