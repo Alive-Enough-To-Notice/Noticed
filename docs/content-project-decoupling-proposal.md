@@ -1,6 +1,26 @@
-# ContentProject decoupling proposal — review only, no schema changes
+# ContentProject decoupling proposal
 
-This is the exact proposal requested before any implementation begins.
+> **Status: implemented** (commit `5605c20`, same day). The owner
+> approved this direction with one structural amendment before
+> implementation: **`ContentDraft.requestId` was removed entirely,
+> not left nullable alongside `contentProjectId`.** The dual-nullable
+> shape originally proposed in point 7 below would have technically
+> permitted a draft with no parent at all and preserved two competing
+> ways to determine ownership — both explicitly rejected. Since the
+> database had zero real rows in every affected table, there was no
+> data to migrate, so `requestId` was dropped outright in a single
+> migration rather than phased. Everything else below — the relation
+> tables, `Restrict` on project deletion, the transactional MCP tool,
+> brand-consistency checks — was implemented as proposed. See the
+> commit message on `5605c20` for the full verification account (all
+> 14 required checks demonstrated live before re-enabling
+> `create_content_draft`).
+
+This was the exact proposal requested before implementation began; the
+body below is preserved as written at the time, for the record.
+
+---
+
 **No schema has been touched.** `create_content_draft` was paused at
 the MCP boundary in a separate commit (see `src/mcp/server.ts`) so it
 can't fabricate a false `MarketingRequest` in the meantime — that pause
@@ -262,7 +282,8 @@ lying about where content came from.
 
 ---
 
-Nothing above has been implemented. This is the proposal to approve or
-revise before any of it is built — not authorization to build the
-wider media studio, install media dependencies, or touch existing
-publishing, all of which remain explicitly out of scope here.
+**Update:** the plan above was approved (with the amendment noted at
+the top of this document) and implemented in commit `5605c20`. The
+wider media studio, media dependencies, and anything beyond the
+existing publishing behavior remain explicitly out of scope and were
+not touched.

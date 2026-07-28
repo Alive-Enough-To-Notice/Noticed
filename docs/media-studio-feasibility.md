@@ -464,21 +464,37 @@ row for every single conversationally-saved idea**, attributed to the
 owner via `requesterName`. Under this session's corrected understanding
 of what `MarketingRequest` actually represents, that means every
 personal "save this draft" MCP call is, today, technically fabricating
-a fake internal-stakeholder marketing request — harmless in practice
-(single owner, no real stakeholders to confuse), but conceptually
-backwards now that the distinction is clear.
+a fake internal-stakeholder marketing request.
 
-Loosening this later (**not being done now — documentation only**)
-would mean a two-phase migration in the same style already used for
-the `Brand` rollout: make `ContentDraft.requestId` nullable, add a new
+> **Correction:** "harmless in practice" above was wrong, and the
+> owner caught it — it was only harmless because the database was
+> empty. Once real Creator Studio content existed, every fabricated
+> `MarketingRequest` would have falsely implied a requester, a
+> department, and eligibility for triage/assignment/request-metrics
+> that never happened — exactly the kind of semantic lie that becomes
+> structural debt later. `create_content_draft` was immediately paused
+> at the MCP boundary as a safety action, and the decoupling proposed
+> below was implemented the same day — see
+> `docs/content-project-decoupling-proposal.md` and commit `5605c20`.
+> `ContentDraft.requestId` was removed entirely (not left nullable
+> alongside `contentProjectId`, which was this document's original,
+> since-corrected suggestion) — every draft now belongs to exactly one
+> `ContentProject`, with no orphan possible and no fabricated request.
+
+The paragraph below describes the original proposal as written before
+that correction, preserved for the record:
+
+~~Loosening this later (not being done now — documentation only) would
+mean a two-phase migration in the same style already used for the
+`Brand` rollout: make `ContentDraft.requestId` nullable, add a new
 optional `contentProjectId`, backfill existing rows, then either
 enforce "exactly one of `requestId`/`contentProjectId` must be set" at
-the application layer or accept both as optional parents. Once that
-exists, `create_content_draft` could attach a saved draft directly to
-a `ContentProject` instead of manufacturing a `MarketingRequest`, and
-the Creator Studio path would stop touching the marketing-operations
-model entirely. This is real, deferred schema work — not something to
-casually do as a side effect of a future unrelated change.
+the application layer or accept both as optional parents.~~ Actually
+implemented as: `requestId` removed outright (the database had zero
+real rows, so there was nothing to migrate), `contentProjectId`
+required, no dual-parent state ever existed. `create_content_draft` now
+attaches saved drafts to a `ContentProject` directly, and the Creator
+Studio path never touches the marketing-operations model.
 
 ## Decision forks — a compact reference
 
