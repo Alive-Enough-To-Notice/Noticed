@@ -1,8 +1,13 @@
 # Noticed — Fly.io (SQLite on persistent volume)
-# Deploy: fly launch --no-deploy (first time) then fly deploy
-# Secrets: fly secrets set NOTICED_OWNER_PASSWORD=... NOTICED_PUBLIC_ORIGIN=https://<app>.fly.dev NOTICED_SESSION_SECRET=...
+# App name: aetn-noticed → https://aetn-noticed.fly.dev
+# Secrets:
+#   fly secrets set -a aetn-noticed \
+#     DATABASE_URL='file:/data/noticed.db' \
+#     NOTICED_OWNER_PASSWORD='...' \
+#     NOTICED_SESSION_SECRET='...' \
+#     NOTICED_PUBLIC_ORIGIN='https://aetn-noticed.fly.dev'
 
-app = 'noticed'
+app = 'aetn-noticed'
 primary_region = 'ord'
 
 [build]
@@ -11,7 +16,6 @@ primary_region = 'ord'
 [env]
   PORT = '3004'
   HOSTNAME = '0.0.0.0'
-  DATABASE_URL = 'file:/data/noticed.db'
   NODE_ENV = 'production'
 
 [http_service]

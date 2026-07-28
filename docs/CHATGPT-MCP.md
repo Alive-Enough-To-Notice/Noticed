@@ -29,21 +29,23 @@ When `NOTICED_OWNER_PASSWORD` is set, the Studio UI requires the same password a
 
 ## Deploy (Fly.io + SQLite volume)
 
+App name: **`aetn-noticed`** → `https://aetn-noticed.fly.dev`
+
 Prereqs: [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/), logged in (`fly auth login`).
 
 ```bash
-cd /Users/BooBear/noticed
+cd /path/to/Noticed
 
-# First time only — creates the app + volume from fly.toml
-fly apps create noticed   # skip if app name taken; edit fly.toml app =
-fly volumes create noticed_data --region ord --size 1
-
-fly secrets set \
+fly secrets set -a aetn-noticed \
+  DATABASE_URL='file:/data/noticed.db' \
   NOTICED_OWNER_PASSWORD='...' \
   NOTICED_SESSION_SECRET='...' \
-  NOTICED_PUBLIC_ORIGIN='https://noticed.fly.dev'
+  NOTICED_PUBLIC_ORIGIN='https://aetn-noticed.fly.dev'
 
-fly deploy
+# Volume (first time only — name must match fly.toml mounts.source)
+fly volumes create noticed_data --app aetn-noticed --region ord --size 1
+
+fly deploy -a aetn-noticed
 ```
 
 Cost is roughly a shared-cpu-1x machine (~$5/mo) with auto-stop off so ChatGPT can always reach MCP.

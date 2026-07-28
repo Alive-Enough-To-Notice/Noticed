@@ -16,8 +16,12 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV DATABASE_URL="file:./dev.db"
-RUN npx prisma generate && npm run build
+# Build-time SQLite so Next can prerender pages that query Prisma.
+# Runtime uses /data/noticed.db on the Fly volume (see entrypoint).
+ENV DATABASE_URL="file:./build.db"
+RUN npx prisma generate \
+  && npx prisma migrate deploy \
+  && npm run build
 
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
