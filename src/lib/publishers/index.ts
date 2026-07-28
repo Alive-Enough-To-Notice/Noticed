@@ -10,6 +10,7 @@ import {
   publishToLinkedInViaNarrareach,
   publishToFacebookViaNarrareach,
 } from "./narrareach";
+import { publishToGoogleBusinessViaBuffer } from "./buffer";
 
 export type PublishableDestinationKey =
   | "bluesky-narrareach"
@@ -20,12 +21,14 @@ export type PublishableDestinationKey =
   | "facebook-narrareach"
   | "linkedin-narrareach"
   | "x-narrareach"
-  | "substack-narrareach";
+  | "substack-narrareach"
+  | "google-business-buffer";
 
 // Maps a destination + a draft's (title, body) onto the right publisher and
 // argument shape for that platform's post format. X, Bluesky, LinkedIn, and
 // Facebook all route through Narrareach (already-connected, already-paid-for)
 // rather than direct per-platform integrations — see project memory for why.
+// Google Business routes through Buffer, connected separately.
 export async function publish(
   destinationKey: PublishableDestinationKey,
   args: { title: string; body: string },
@@ -49,19 +52,23 @@ export async function publish(
       return publishToLinkedInViaNarrareach(args.body);
     case "substack-narrareach":
       return publishToSubstackViaNarrareach(args.title, args.body);
+    case "google-business-buffer":
+      return publishToGoogleBusinessViaBuffer(args.body);
   }
 }
 
 // Which destinations make sense for each ContentDraft channel — BLOG drafts
 // have a title + long body (blog-shaped platforms), LINKEDIN drafts are
 // medium-length professional text, X drafts are short-form microblog text.
+// Google Business's "What's New" post type is a short business update, same
+// shape as the BLOG channel's medium-length announcements.
 //
 // Mastodon is built (see ./mastodon.ts) but deliberately left out of this
 // active list — the owner doesn't have a Mastodon account; it only came up
 // while thinking about a future mass-market version of Noticed, not
 // something to surface in a single-user dropdown right now.
 export const CHANNEL_DESTINATIONS: Record<string, PublishableDestinationKey[]> = {
-  BLOG: ["wordpress", "ghost", "reddit", "substack-narrareach"],
+  BLOG: ["wordpress", "ghost", "reddit", "substack-narrareach", "google-business-buffer"],
   LINKEDIN: ["linkedin-narrareach", "facebook-narrareach"],
   X: ["x-narrareach", "bluesky-narrareach"],
 };

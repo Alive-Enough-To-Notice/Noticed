@@ -99,18 +99,18 @@ export const DESTINATIONS: Destination[] = [
   {
     key: "youtube",
     label: "YouTube",
-    capability: "CONFIRM",
+    capability: "EXPORT",
     built: false,
     notes:
-      "Data API v3 via self-serve Google Cloud OAuth works for your own channel; broader use needs Google's sensitive-scope verification. Not yet built.",
+      "Corrected 2026-07-28: the owner connected Buffer, which has YouTube (InfraNet-HR channel) genuinely connected — confirmed via Buffer's own GraphQL schema and list_channels. But Buffer's createPost requires an actual video file for YouTube (metadata.youtube.title + categoryId + a video asset) — same real blocker as Instagram/TikTok/Pinterest. Noticed doesn't generate video, so there's nothing to publish here regardless of the connection.",
   },
   {
-    key: "google-business",
-    label: "Google Business Profile",
-    capability: "CONFIRM",
-    built: false,
+    key: "google-business-buffer",
+    label: "Google Business Profile (via Buffer)",
+    capability: "DIRECT",
+    built: true,
     notes:
-      "Business Profile API requires a verified business and an API access request — gated, not instant, but not an enterprise-only program either. Not yet built.",
+      "Corrected 2026-07-28: the owner connected Buffer, which has Google Business Profile (InfraNet-HR) genuinely connected. Unlike YouTube, Buffer's \"What's New\" post type for Google Business is plain text — no image/video required — so this is actually usable today. Needs BUFFER_API_TOKEN + BUFFER_GOOGLE_BUSINESS_CHANNEL_ID. Publishes immediately (mode: shareNow), not scheduled like the Narrareach destinations.",
   },
   {
     key: "instagram",
