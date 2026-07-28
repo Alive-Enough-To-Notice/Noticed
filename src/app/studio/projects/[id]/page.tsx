@@ -5,6 +5,7 @@ import { CONTENT_CHANNEL_LABELS } from "@/lib/requests";
 import { NEUTRAL_BADGE_CLASS, draftStatusBadgeClass } from "@/lib/badges";
 import { CHANNEL_DESTINATIONS } from "@/lib/publishers";
 import { DESTINATIONS } from "@/lib/destinations";
+import { AudioRecorder } from "./AudioRecorder";
 import {
   createProjectDraftAction,
   editDraftBodyAction,
@@ -27,6 +28,7 @@ export default async function ProjectDetailPage({
     include: {
       brand: true,
       ideas: { include: { idea: true } },
+      recordings: { orderBy: { createdAt: "desc" } },
       drafts: {
         orderBy: { createdAt: "asc" },
         include: {
@@ -78,6 +80,65 @@ export default async function ProjectDetailPage({
           </div>
         </section>
       )}
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--slate)]">
+          Recordings
+        </h2>
+        <AudioRecorder contentProjectId={project.id} />
+        {project.recordings.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {project.recordings.map((recording) => {
+              let segments: Array<{ start: number; end: number; text: string }> = [];
+              try {
+                segments = recording.transcriptSegments
+                  ? JSON.parse(recording.transcriptSegments)
+                  : [];
+              } catch {
+                segments = [];
+              }
+              return (
+                <div
+                  key={recording.id}
+                  className="flex flex-col gap-2 rounded-lg border border-[var(--card-border)] bg-white p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-[var(--slate)]">
+                      {recording.createdAt.toLocaleString()}
+                      {recording.durationSeconds
+                        ? ` · ${Math.round(recording.durationSeconds)}s`
+                        : ""}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${NEUTRAL_BADGE_CLASS}`}>
+                      {recording.status === "TRANSCRIBING" ? "Transcribing..." : recording.status}
+                    </span>
+                  </div>
+                  <audio controls src={`/api/studio/recordings/${recording.id}/audio`} className="w-full" />
+                  {recording.status === "TRANSCRIBED" && (
+                    <div className="flex flex-col gap-1 text-sm text-[var(--ink)]">
+                      {segments.length > 0 ? (
+                        segments.map((seg, i) => (
+                          <p key={i}>
+                            <span className="mr-2 text-xs text-[var(--slate)]">
+                              {Math.floor(seg.start / 60)}:{String(Math.floor(seg.start % 60)).padStart(2, "0")}
+                            </span>
+                            {seg.text}
+                          </p>
+                        ))
+                      ) : (
+                        <p className="whitespace-pre-wrap">{recording.transcript}</p>
+                      )}
+                    </div>
+                  )}
+                  {recording.status === "FAILED" && (
+                    <p className="text-xs text-[var(--critical)]">{recording.transcriptError}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">

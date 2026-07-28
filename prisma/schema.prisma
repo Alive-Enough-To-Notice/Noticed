@@ -147,6 +147,37 @@ model ContentProject {
   drafts            ContentDraft[]
   marketingRequests MarketingRequestContentProject[]
   ideas             IdeaContentProject[]
+  recordings        Recording[]
+}
+
+// A raw audio capture plus its local transcription. The file itself lives
+// on disk (see RECORDINGS_DIR in src/lib/services/recordings.ts) — only the
+// path is stored here, same "never BLOB the media" rule as the rest of this
+// app. Transcription runs locally via whisper.cpp; no audio or transcript
+// text is ever sent to a model API.
+enum RecordingStatus {
+  UPLOADED
+  TRANSCRIBING
+  TRANSCRIBED
+  FAILED
+}
+
+model Recording {
+  id               String          @id @default(cuid())
+  contentProjectId String
+  contentProject   ContentProject  @relation(fields: [contentProjectId], references: [id], onDelete: Restrict)
+  filePath         String
+  mimeType         String
+  durationSeconds  Float?
+  status           RecordingStatus @default(UPLOADED)
+  // Plain-text transcript for quick display/search, plus the segment-level
+  // (not word-level — see docs/media-studio-feasibility.md point 8 for why
+  // that distinction was deliberate) timestamps as JSON.
+  transcript         String?
+  transcriptSegments String?
+  transcriptError    String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 }
 
 // Personal, format-less capture — "there's something here," before it's
