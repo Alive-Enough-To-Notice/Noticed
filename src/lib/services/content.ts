@@ -74,20 +74,7 @@ export async function createDraftFromIdea(args: {
     );
   }
   const brand = await resolveBrand(args.brandKey);
-
-  const request = await prisma.marketingRequest.create({
-    data: {
-      brandId: brand.id,
-      type: args.type ?? "CAMPAIGN",
-      title: args.title,
-      description: args.description ?? null,
-      requesterName: args.requesterName,
-      status: "IN_PROGRESS",
-      activities: {
-        create: { type: "CREATED", message: "Captured from a conversation" },
-      },
-    },
-  });
+  const type = args.type ?? "CAMPAIGN";
 
   // Brand-scoped on purpose — this is the whole point of the brand layer.
   // InfraNet's voice/prohibited-claims must never bleed into a draft
@@ -96,11 +83,15 @@ export async function createDraftFromIdea(args: {
     where: { brandId: brand.id, status: "APPROVED" },
   });
 
+  // Generate BEFORE writing anything to the database. A caller with no
+  // ANTHROPIC_API_KEY configured (or any other generation failure) must not
+  // leave a dangling MarketingRequest with zero drafts behind — found by
+  // actually testing this tool end to end, not by inspection.
   const contentPackage = await generateContentPackage(
     {
-      type: request.type,
-      title: request.title,
-      description: request.description,
+      type,
+      title: args.title,
+      description: args.description ?? null,
       department: null,
     },
     approvedKnowledge,
@@ -111,6 +102,20 @@ export async function createDraftFromIdea(args: {
   );
   const compliance = await checkCompliance(contentPackage, prohibitedRecords);
   const complianceFlag = compliance.clean ? null : JSON.stringify(compliance.violations);
+
+  const request = await prisma.marketingRequest.create({
+    data: {
+      brandId: brand.id,
+      type,
+      title: args.title,
+      description: args.description ?? null,
+      requesterName: args.requesterName,
+      status: "IN_PROGRESS",
+      activities: {
+        create: { type: "CREATED", message: "Captured from a conversation" },
+      },
+    },
+  });
 
   const drafts = await Promise.all(
     (
