@@ -10,6 +10,22 @@ datasource db {
   provider = "sqlite"
 }
 
+// Single-owner, multiple brand voices — NOT multi-tenant (no client
+// workspaces, no customer accounts, no auth boundary between brands, just
+// keeping one person's several voices from blending). Requests and
+// KnowledgeRecords get a direct brandId; everything else (drafts,
+// activities, publish attempts) derives brand through its parent relation
+// rather than duplicating the column everywhere.
+model Brand {
+  id        String  @id @default(cuid())
+  key       String  @unique
+  name      String
+  isDefault Boolean @default(false)
+
+  requests        MarketingRequest[]
+  knowledgeRecords KnowledgeRecord[]
+}
+
 // The requester's ask — kept intentionally broad since one form covers all
 // twelve request types for now; per-type question sets are a documented gap.
 enum RequestType {
@@ -48,6 +64,8 @@ enum RequestStatus {
 // approval, publishing, verification) hangs off this spine.
 model MarketingRequest {
   id            String           @id @default(cuid())
+  brandId       String
+  brand         Brand            @relation(fields: [brandId], references: [id])
   type          RequestType
   title         String
   description   String?
@@ -176,6 +194,8 @@ enum KnowledgeStatus {
 
 model KnowledgeRecord {
   id        String          @id @default(cuid())
+  brandId   String
+  brand     Brand           @relation(fields: [brandId], references: [id])
   type      KnowledgeType
   title     String
   content   String

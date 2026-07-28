@@ -1,17 +1,31 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import {
   KNOWLEDGE_TYPES,
   KNOWLEDGE_TYPE_LABELS,
   KNOWLEDGE_STATUS_LABELS,
 } from "@/lib/knowledge";
-import { knowledgeStatusBadgeClass } from "@/lib/badges";
+import { listBrands } from "@/lib/brands";
+import { knowledgeStatusBadgeClass, NEUTRAL_BADGE_CLASS } from "@/lib/badges";
 import { createKnowledgeRecord, setKnowledgeStatus } from "./actions";
 import type { KnowledgeStatus } from "@/generated/prisma/client";
 
 const STATUS_SORT: KnowledgeStatus[] = ["PROPOSED", "APPROVED", "DEPRECATED"];
 
-export default async function BrandPage() {
+export default async function BrandPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ brand?: string }>;
+}) {
+  const { brand: brandFilter } = await searchParams;
+  const brands = await listBrands();
+  const activeBrand = brandFilter
+    ? brands.find((b) => b.key === brandFilter)
+    : undefined;
+
   const records = await prisma.knowledgeRecord.findMany({
+    where: activeBrand ? { brandId: activeBrand.id } : {},
+    include: { brand: true },
     orderBy: { createdAt: "desc" },
   });
   const sorted = [...records].sort(
@@ -26,10 +40,27 @@ export default async function BrandPage() {
         <p className="max-w-2xl text-sm text-[var(--slate)]">
           The shared source of truth every generation call draws from —
           company facts, audiences, voice, and explicitly approved or
-          prohibited claims. Only APPROVED records reach a generation
-          prompt. Nothing here becomes approved truth just because it was
-          typed or uploaded — a status change is a deliberate action.
+          prohibited claims, kept separate per brand so voices never blend.
+          Only APPROVED records reach a generation prompt for that brand.
         </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-sm">
+        <Link
+          href="/brand"
+          className={`rounded-full px-3 py-1 ${!activeBrand ? "bg-[var(--accent)] text-white" : NEUTRAL_BADGE_CLASS}`}
+        >
+          All brands
+        </Link>
+        {brands.map((b) => (
+          <Link
+            key={b.key}
+            href={`/brand?brand=${b.key}`}
+            className={`rounded-full px-3 py-1 ${activeBrand?.key === b.key ? "bg-[var(--accent)] text-white" : NEUTRAL_BADGE_CLASS}`}
+          >
+            {b.name}
+          </Link>
+        ))}
       </div>
 
       <form
@@ -37,7 +68,23 @@ export default async function BrandPage() {
         className="flex flex-col gap-4 rounded-lg border border-[var(--card-border)] bg-white p-6"
       >
         <p className="text-sm font-medium">Add a record</p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Brand</span>
+            <select
+              name="brandKey"
+              required
+              defaultValue={activeBrand?.key ?? brands.find((b) => b.isDefault)?.key ?? ""}
+              className="rounded border border-[var(--card-border)] px-3 py-2 text-sm"
+            >
+              {brands.map((b) => (
+                <option key={b.key} value={b.key}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium">Type</span>
             <select
@@ -126,7 +173,7 @@ export default async function BrandPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs text-[var(--slate)]">
-                    {KNOWLEDGE_TYPE_LABELS[record.type]}
+                    {record.brand.name} · {KNOWLEDGE_TYPE_LABELS[record.type]}
                     {record.source ? ` · ${record.source}` : ""}
                   </p>
                   <h2 className="font-medium">{record.title}</h2>

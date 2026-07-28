@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { resolveBrand } from "@/lib/brands";
 import { KNOWLEDGE_STATUS_LABELS } from "@/lib/knowledge";
 import type { KnowledgeType, KnowledgeStatus } from "@/generated/prisma/client";
 
 export async function createKnowledgeRecord(formData: FormData) {
+  const brandKey = String(formData.get("brandKey") ?? "").trim();
   const type = String(formData.get("type") ?? "") as KnowledgeType;
   const title = String(formData.get("title") ?? "").trim();
   const content = String(formData.get("content") ?? "").trim();
@@ -19,8 +21,11 @@ export async function createKnowledgeRecord(formData: FormData) {
     throw new Error("Type, title, and content are required");
   }
 
+  const brand = await resolveBrand(brandKey || null);
+
   await prisma.knowledgeRecord.create({
     data: {
+      brandId: brand.id,
       type,
       title,
       content,

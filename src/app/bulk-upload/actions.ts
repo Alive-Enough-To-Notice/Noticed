@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { parse } from "csv-parse/sync";
 import { prisma } from "@/lib/prisma";
+import { resolveBrand } from "@/lib/brands";
 import type { ContentChannel } from "@/generated/prisma/client";
 
 const VALID_CHANNELS: ContentChannel[] = ["BLOG", "LINKEDIN", "X"];
@@ -54,6 +55,7 @@ function parseRows(csvText: string): { rows: ParsedRow[]; skipped: number } {
 }
 
 export async function bulkImport(formData: FormData) {
+  const brandKey = String(formData.get("brandKey") ?? "").trim();
   const requesterName = String(formData.get("requesterName") ?? "").trim();
   const file = formData.get("file") as File | null;
   const pastedText = String(formData.get("csvText") ?? "").trim();
@@ -70,8 +72,11 @@ export async function bulkImport(formData: FormData) {
     );
   }
 
+  const brand = await resolveBrand(brandKey || null);
+
   const request = await prisma.marketingRequest.create({
     data: {
+      brandId: brand.id,
       type: "CAMPAIGN",
       title: `Bulk import — ${rows.length} post${rows.length === 1 ? "" : "s"} (${new Date().toLocaleDateString(undefined, { timeZone: "UTC" })})`,
       requesterName,

@@ -1,6 +1,8 @@
 import { bulkImport } from "./actions";
+import { listBrands } from "@/lib/brands";
 
-export default function BulkUploadPage() {
+export default async function BulkUploadPage() {
+  const brands = await listBrands();
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -49,6 +51,22 @@ export default function BulkUploadPage() {
         action={bulkImport}
         className="flex flex-col gap-4 rounded-lg border border-[var(--card-border)] bg-white p-6"
       >
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Brand</span>
+          <select
+            name="brandKey"
+            required
+            defaultValue={brands.find((b) => b.isDefault)?.key ?? ""}
+            className="rounded border border-[var(--card-border)] px-3 py-2 text-sm"
+          >
+            {brands.map((b) => (
+              <option key={b.key} value={b.key}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Your name</span>
           <input

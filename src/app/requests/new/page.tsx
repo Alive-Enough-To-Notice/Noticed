@@ -5,6 +5,7 @@ import {
   REQUEST_PRIORITIES,
   REQUEST_PRIORITY_LABELS,
 } from "@/lib/requests";
+import { listBrands } from "@/lib/brands";
 
 export default async function NewRequestPage({
   searchParams,
@@ -12,6 +13,7 @@ export default async function NewRequestPage({
   searchParams: Promise<{ title?: string; description?: string }>;
 }) {
   const { title, description } = await searchParams;
+  const brands = await listBrands();
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -28,6 +30,22 @@ export default async function NewRequestPage({
         action={createRequest}
         className="flex flex-col gap-4 rounded-lg border border-[var(--card-border)] bg-white p-6"
       >
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Brand</span>
+          <select
+            name="brandKey"
+            required
+            defaultValue={brands.find((b) => b.isDefault)?.key ?? ""}
+            className="rounded border border-[var(--card-border)] px-3 py-2 text-sm"
+          >
+            {brands.map((b) => (
+              <option key={b.key} value={b.key}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Request type</span>
           <select

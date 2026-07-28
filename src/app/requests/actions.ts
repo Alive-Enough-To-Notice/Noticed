@@ -2,9 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { resolveBrand } from "@/lib/brands";
 import type { RequestPriority, RequestType } from "@/generated/prisma/client";
 
 export async function createRequest(formData: FormData) {
+  const brandKey = String(formData.get("brandKey") ?? "").trim();
   const type = String(formData.get("type") ?? "") as RequestType;
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
@@ -17,8 +19,11 @@ export async function createRequest(formData: FormData) {
     throw new Error("Type, title, and requester name are required");
   }
 
+  const brand = await resolveBrand(brandKey || null);
+
   const request = await prisma.marketingRequest.create({
     data: {
+      brandId: brand.id,
       type,
       title,
       description: description || null,

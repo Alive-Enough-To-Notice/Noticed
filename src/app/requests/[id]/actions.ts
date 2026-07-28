@@ -90,8 +90,11 @@ export async function generateContent(requestId: string) {
   const request = await prisma.marketingRequest.findUniqueOrThrow({
     where: { id: requestId },
   });
+  // Brand-scoped, not global — a request for one brand must never draw on
+  // another brand's voice/prohibited-claims. This is the actual point of
+  // the brand layer, not just a display label.
   const approvedKnowledge = await prisma.knowledgeRecord.findMany({
-    where: { status: "APPROVED" },
+    where: { brandId: request.brandId, status: "APPROVED" },
   });
 
   const contentPackage = await generateContentPackage(
