@@ -56,12 +56,23 @@ export async function searchContent(args: { query: string; brandKey?: string }) 
 }
 
 export async function createDraftFromIdea(args: {
-  brandKey?: string;
+  brandKey: string;
   requesterName: string;
   title: string;
   description?: string;
   type?: RequestType;
 }) {
+  // Deliberately not optional and not defaulted, unlike other brandKey
+  // params in this file. A conversational caller (MCP) has no equivalent
+  // of the web form's required <select> forcing a real choice — silently
+  // falling back to the default brand here would let an ambiguous idea
+  // ("that thing about admin burden") quietly land under the wrong brand
+  // instead of failing loudly.
+  if (!args.brandKey) {
+    throw new Error(
+      "brandKey is required to create a draft — creation must not silently fall back to a default brand.",
+    );
+  }
   const brand = await resolveBrand(args.brandKey);
 
   const request = await prisma.marketingRequest.create({

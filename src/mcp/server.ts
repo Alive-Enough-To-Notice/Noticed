@@ -21,6 +21,18 @@ const brandKeySchema = z
       ". Omit to use the owner's default brand.",
   );
 
+// Deliberately NOT optional, unlike brandKeySchema above. Creating content
+// is a write with real brand consequences — a conversational caller must
+// name the brand explicitly rather than silently landing under whichever
+// brand happens to be marked default.
+const requiredBrandKeySchema = z
+  .enum(BRAND_KEYS)
+  .describe(
+    "Which brand this draft belongs to — required, one of: " +
+      BRAND_KEYS.join(", ") +
+      ". Never inferred or defaulted — ask the user which brand if it isn't obvious from the conversation.",
+  );
+
 const server = new McpServer({
   name: "noticed",
   version: "0.1.0",
@@ -64,9 +76,9 @@ server.registerTool(
   {
     title: "Create draft from idea",
     description:
-      "Turn a rough idea into a new request plus a generated package of drafts (blog, LinkedIn, X), scoped to one brand's approved knowledge. This creates DRAFTS only — nothing is published. Requires the owner's own ANTHROPIC_API_KEY to be set in .env.",
+      "Turn a rough idea into a new request plus a generated package of drafts (blog, LinkedIn, X), scoped to one brand's approved knowledge. This creates DRAFTS only — nothing is published. brandKey is required: never guess or default it — if the right brand isn't clear from the conversation, ask the user before calling this tool. Requires the owner's own ANTHROPIC_API_KEY to be set in .env.",
     inputSchema: {
-      brandKey: brandKeySchema,
+      brandKey: requiredBrandKeySchema,
       requesterName: z.string().describe("Name to attribute this request to."),
       title: z.string().describe("A short title for the idea."),
       description: z.string().optional().describe("More detail on the idea — the brief the drafts are generated from."),
