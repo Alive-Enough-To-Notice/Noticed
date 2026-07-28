@@ -1,0 +1,21 @@
+# Docker
+.dockerignore
+
+# Fly
+.fly
+
+# Local
+.env
+.env.*
+!.env.example
+
+# Dev artifacts
+dev.db
+dev.db-journal
+.next
+node_modules
+*.tsbuildinfo
+.git
+.gitignore
+README.md
+homepage-*.png

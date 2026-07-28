@@ -1,21 +1,26 @@
-# Remote MCP architecture — report only, nothing implemented
+This is documentation of the remote MCP design and hosting tradeoffs.
 
-This is documentation, not a plan you've approved yet. Nothing below has
-been built. Per your explicit instruction: do not deploy Noticed
-remotely, replace SQLite, add OAuth, create a ChatGPT plugin, build
-content synchronization, add client workspaces, or add live MCP
-publishing until you separately approve it.
+**Implementation status:** Streamable HTTP MCP + single-owner OAuth + Fly deploy
+artifacts are in the codebase. Operational connect/deploy steps:
+[CHATGPT-MCP.md](./CHATGPT-MCP.md).
+
+The sections below remain useful context (why Fly + SQLite, why OAuth for
+ChatGPT Connect, what stayed out of scope). They were written before
+implementation; prefer CHATGPT-MCP.md for “how do I turn this on.”
+
+---
+
+# Remote MCP architecture
 
 Today, Noticed is: Next.js 16 + SQLite (`dev.db`, currently ~100KB) +
-env-file secrets, running only on your own machine, with no auth layer
-because there's never been a second user to authenticate against. The
-local stdio MCP server (`src/mcp/server.ts`) talks to that same local
-SQLite file directly — that only works because the MCP client (ChatGPT
-Desktop, or whatever spawns it) and the server are on the same machine.
-A *remote* MCP connection — ChatGPT's servers reaching a Noticed
-instance that runs continuously somewhere — is a different shape of
-problem. The 14 points below are the pieces of that problem, reported
-honestly rather than pre-solved.
+    env-file secrets, running only on your own machine when undeployed, with no auth layer
+    because there's never been a second user to authenticate against. The
+    local stdio MCP server (`src/mcp/server.ts`) talks to that same local
+    SQLite file directly — that only works because the MCP client (ChatGPT
+    Desktop, or whatever spawns it) and the server are on the same machine.
+    A *remote* MCP connection — ChatGPT's servers reaching a Noticed
+    instance that runs continuously somewhere — is a different shape of
+    problem. The points below are the pieces of that problem.
 
 ## 1. Hosting options for this single-owner app
 
