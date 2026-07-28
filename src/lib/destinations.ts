@@ -65,12 +65,12 @@ export const DESTINATIONS: Destination[] = [
       "REST API with an Application Password (self-hosted) — self-serve, no review. Needs WORDPRESS_SITE_URL + WORDPRESS_USERNAME + WORDPRESS_APPLICATION_PASSWORD.",
   },
   {
-    key: "facebook",
-    label: "Facebook",
+    key: "facebook-narrareach",
+    label: "Facebook (via Narrareach)",
     capability: "DIRECT",
     built: true,
     notes:
-      "Corrected 2026-07-27: Meta's App Review gate only applies once people WITHOUT a role on your app use it. Since Noticed is single-owner, adding yourself as Admin on your own Meta app skips App Review entirely for Pages you administer. Needs FACEBOOK_PAGE_ID + FACEBOOK_PAGE_ACCESS_TOKEN.",
+      "Corrected 2026-07-28: earlier assumed not connected on Narrareach based on the get_user_profile tool's summary, which turned out to be incomplete — the owner's actual Narrareach settings page shows Facebook genuinely connected (\"Connected as InfraNet-HR\"). Switched to Narrareach for the same reason as X/Bluesky/LinkedIn. Needs NARRAREACH_API_TOKEN. Scheduled ~1 min out, not instant.",
   },
   {
     key: "x-narrareach",
@@ -86,7 +86,7 @@ export const DESTINATIONS: Destination[] = [
     capability: "DIRECT",
     built: true,
     notes:
-      "Switched to Narrareach 2026-07-28 — the owner already has LinkedIn connected there, no separate developer app/token needed. Needs NARRAREACH_API_TOKEN. Scheduled ~1 min out, not instant.",
+      "Switched to Narrareach 2026-07-28 — the owner already has LinkedIn connected there, no separate developer app/token needed. Needs NARRAREACH_API_TOKEN. Scheduled ~1 min out, not instant. Note: this is the short-form \"LinkedIn Social\" connection (used for LINKEDIN-channel drafts) — Narrareach separately shows \"LinkedIn Articles\" as \"Ready\" for full long-form LinkedIn articles via its schedule_article endpoint, not wired up yet since BLOG drafts currently only target WordPress/Ghost/Reddit/Substack.",
   },
   {
     key: "reddit",
@@ -118,7 +118,31 @@ export const DESTINATIONS: Destination[] = [
     capability: "EXPORT",
     built: false,
     notes:
-      "Corrected 2026-07-27: the same single-owner dev-mode bypass as Facebook applies to the App Review gate, but Instagram fundamentally requires an image or video for every post — no text-only posts — and the media must already be hosted at a public URL. Noticed doesn't generate images yet, so there's nothing to actually publish here regardless of credentials.",
+      "Corrected 2026-07-27: the same single-owner dev-mode bypass as Facebook applies to the App Review gate, but Instagram fundamentally requires an image or video for every post — no text-only posts — and the media must already be hosted at a public URL. Noticed doesn't generate images yet, so there's nothing to actually publish here regardless of credentials. Confirmed \"Not connected\" on the owner's actual Narrareach settings page too (2026-07-28) — same real blocker, image support, would need building first even if connected there instead.",
+  },
+  {
+    key: "threads",
+    label: "Threads",
+    capability: "CONFIRM",
+    built: false,
+    notes:
+      "Narrareach supports Threads as a notes destination, but it shows \"Not connected\" on the owner's account (confirmed 2026-07-28 via the actual settings page). Would just need connecting there, then the same scheduleNoteViaNarrareach path used for X/Bluesky/LinkedIn/Facebook would cover it.",
+  },
+  {
+    key: "tiktok",
+    label: "TikTok",
+    capability: "EXPORT",
+    built: false,
+    notes:
+      "Narrareach lists TikTok, but \"publishes video and photo posts\" — like Instagram, this needs real video/image content Noticed doesn't generate yet. Also \"Not connected\" on the owner's account.",
+  },
+  {
+    key: "pinterest",
+    label: "Pinterest",
+    capability: "EXPORT",
+    built: false,
+    notes:
+      "Narrareach lists Pinterest, but it publishes image/video pins — same media requirement as Instagram/TikTok. Also \"Not connected\" on the owner's account.",
   },
   {
     key: "linkedin-business",

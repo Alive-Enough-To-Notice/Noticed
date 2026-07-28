@@ -3,12 +3,12 @@ import { publishToMastodon } from "./mastodon";
 import { publishToGhost } from "./ghost";
 import { publishToWordPress } from "./wordpress";
 import { publishToReddit } from "./reddit";
-import { publishToFacebook } from "./facebook";
 import {
   publishToSubstackViaNarrareach,
   publishToXViaNarrareach,
   publishToBlueskyViaNarrareach,
   publishToLinkedInViaNarrareach,
+  publishToFacebookViaNarrareach,
 } from "./narrareach";
 
 export type PublishableDestinationKey =
@@ -17,15 +17,15 @@ export type PublishableDestinationKey =
   | "ghost"
   | "wordpress"
   | "reddit"
-  | "facebook"
+  | "facebook-narrareach"
   | "linkedin-narrareach"
   | "x-narrareach"
   | "substack-narrareach";
 
 // Maps a destination + a draft's (title, body) onto the right publisher and
-// argument shape for that platform's post format. X, Bluesky, and LinkedIn
-// route through Narrareach (already-connected, already-paid-for) rather than
-// direct per-platform integrations — see project memory for why.
+// argument shape for that platform's post format. X, Bluesky, LinkedIn, and
+// Facebook all route through Narrareach (already-connected, already-paid-for)
+// rather than direct per-platform integrations — see project memory for why.
 export async function publish(
   destinationKey: PublishableDestinationKey,
   args: { title: string; body: string },
@@ -43,8 +43,8 @@ export async function publish(
       return publishToWordPress(args.title, args.body);
     case "reddit":
       return publishToReddit(args.title, args.body);
-    case "facebook":
-      return publishToFacebook(args.body);
+    case "facebook-narrareach":
+      return publishToFacebookViaNarrareach(args.body);
     case "linkedin-narrareach":
       return publishToLinkedInViaNarrareach(args.body);
     case "substack-narrareach":
@@ -62,6 +62,6 @@ export async function publish(
 // something to surface in a single-user dropdown right now.
 export const CHANNEL_DESTINATIONS: Record<string, PublishableDestinationKey[]> = {
   BLOG: ["wordpress", "ghost", "reddit", "substack-narrareach"],
-  LINKEDIN: ["linkedin-narrareach", "facebook"],
+  LINKEDIN: ["linkedin-narrareach", "facebook-narrareach"],
   X: ["x-narrareach", "bluesky-narrareach"],
 };

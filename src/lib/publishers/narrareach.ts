@@ -85,3 +85,7 @@ export function publishToBlueskyViaNarrareach(text: string): Promise<PublishResu
 export function publishToLinkedInViaNarrareach(text: string): Promise<PublishResult> {
   return scheduleNoteViaNarrareach(text, ["LINKEDIN"]);
 }
+
+export function publishToFacebookViaNarrareach(text: string): Promise<PublishResult> {
+  return scheduleNoteViaNarrareach(text, ["FACEBOOK"]);
+}
