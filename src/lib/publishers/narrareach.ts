@@ -47,3 +47,41 @@ export async function publishToSubstackViaNarrareach(
   const data = (await res.json()) as { operationId?: string; id?: string; url?: string };
   return { id: data.operationId ?? data.id, url: data.url };
 }
+
+// Short-form note scheduling — covers X, Bluesky, and LinkedIn, all of which
+// the owner already has connected on their existing Narrareach account, so
+// this replaces the direct per-platform integrations for those three rather
+// than running alongside them (one paid connection already covers it).
+async function scheduleNoteViaNarrareach(
+  content: string,
+  platforms: string[],
+): Promise<PublishResult> {
+  const token = requireEnv("NARRAREACH_API_TOKEN");
+  const scheduledFor = new Date(Date.now() + 60_000).toISOString();
+
+  const res = await fetch(`${BASE_URL}/notes`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ content, platforms, scheduledFor }),
+  });
+  if (!res.ok) {
+    throw new Error(`Narrareach note scheduling failed: ${await res.text()}`);
+  }
+  const data = (await res.json()) as { operationId?: string; id?: string; url?: string };
+  return { id: data.operationId ?? data.id, url: data.url };
+}
+
+export function publishToXViaNarrareach(text: string): Promise<PublishResult> {
+  return scheduleNoteViaNarrareach(text, ["X"]);
+}
+
+export function publishToBlueskyViaNarrareach(text: string): Promise<PublishResult> {
+  return scheduleNoteViaNarrareach(text, ["BLUESKY"]);
+}
+
+export function publishToLinkedInViaNarrareach(text: string): Promise<PublishResult> {
+  return scheduleNoteViaNarrareach(text, ["LINKEDIN"]);
+}

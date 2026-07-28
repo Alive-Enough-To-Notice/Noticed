@@ -33,12 +33,12 @@ export const DESTINATIONS: Destination[] = [
       "Noticed serves this itself at /feed.xml — no external account, no API key. Approved blog drafts publish the moment they're approved.",
   },
   {
-    key: "bluesky",
-    label: "Bluesky",
+    key: "bluesky-narrareach",
+    label: "Bluesky (via Narrareach)",
     capability: "DIRECT",
     built: true,
     notes:
-      "AT Protocol is fully open — an app password is enough, no developer app review. Needs BLUESKY_IDENTIFIER + BLUESKY_APP_PASSWORD in .env.",
+      "Switched to Narrareach 2026-07-28 — the owner already has Bluesky (infranet-hr.com) connected there, no separate app password needed. Needs NARRAREACH_API_TOKEN. Scheduled ~1 min out, not instant.",
   },
   {
     key: "mastodon",
@@ -46,7 +46,7 @@ export const DESTINATIONS: Destination[] = [
     capability: "DIRECT",
     built: true,
     notes:
-      "Per-instance self-serve app registration, open REST API, no review process. Needs MASTODON_INSTANCE_URL + MASTODON_ACCESS_TOKEN.",
+      "Per-instance self-serve app registration, open REST API, no review process. Built, but the owner doesn't have a Mastodon account and only raised it while thinking about a future mass-market version of Noticed — not offered in the active publish dropdown right now (see src/lib/publishers/index.ts). Needs MASTODON_INSTANCE_URL + MASTODON_ACCESS_TOKEN if it ever gets activated.",
   },
   {
     key: "ghost",
@@ -73,20 +73,20 @@ export const DESTINATIONS: Destination[] = [
       "Corrected 2026-07-27: Meta's App Review gate only applies once people WITHOUT a role on your app use it. Since Noticed is single-owner, adding yourself as Admin on your own Meta app skips App Review entirely for Pages you administer. Needs FACEBOOK_PAGE_ID + FACEBOOK_PAGE_ACCESS_TOKEN.",
   },
   {
-    key: "x",
-    label: "X",
-    capability: "CONFIRM",
+    key: "x-narrareach",
+    label: "X (via Narrareach)",
+    capability: "DIRECT",
     built: true,
     notes:
-      "Corrected 2026-07-27: not blocked, just not free — X moved to pay-per-use in Feb 2026 (~$0.01/post). Real per-post cost, not a setup gap. Needs X_API_KEY + X_API_SECRET + X_ACCESS_TOKEN + X_ACCESS_TOKEN_SECRET (OAuth 1.0a, static once generated in the dev portal).",
+      "Switched to Narrareach 2026-07-28 — the owner already has X (@InfraNetHR) connected there, sidestepping X's own pay-per-use API pricing (Feb 2026) entirely. Needs NARRAREACH_API_TOKEN. Scheduled ~1 min out, not instant.",
   },
   {
-    key: "linkedin-personal",
-    label: "LinkedIn (personal)",
-    capability: "CONFIRM",
+    key: "linkedin-narrareach",
+    label: "LinkedIn (personal, via Narrareach)",
+    capability: "DIRECT",
     built: true,
     notes:
-      "w_member_social + the self-serve \"Share on LinkedIn\" product — LinkedIn's actual self-serve tier, well short of the Business gate below. Needs LINKEDIN_ACCESS_TOKEN + LINKEDIN_PERSON_URN. Uses the legacy-but-functional ugcPosts endpoint (LinkedIn's newer Posts API schema wasn't confirmable with enough certainty to implement safely).",
+      "Switched to Narrareach 2026-07-28 — the owner already has LinkedIn connected there, no separate developer app/token needed. Needs NARRAREACH_API_TOKEN. Scheduled ~1 min out, not instant.",
   },
   {
     key: "reddit",
@@ -142,6 +142,6 @@ export const DESTINATIONS: Destination[] = [
     capability: "UNAVAILABLE",
     built: false,
     notes:
-      "Medium's publish API was deprecated and archived in 2023 — \"currently unavailable,\" no new integrations allowed. There's no real path here right now.",
+      "Medium's own publish API was deprecated and archived in 2023 — \"currently unavailable,\" no new integrations allowed. Narrareach's article endpoint does list MEDIUM as a supported platform (same pattern as the Substack fix), but the owner hasn't connected a Medium account there yet — worth revisiting if that changes.",
   },
 ];
