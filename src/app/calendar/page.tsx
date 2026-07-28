@@ -24,19 +24,36 @@ export default async function CalendarPage({
   const gridEnd = new Date(grid[41].date);
   gridEnd.setUTCDate(gridEnd.getUTCDate() + 1);
 
+  // ContentDraft's only parent is its ContentProject now. To keep linking
+  // to the request page for Marketing-Operations-originated drafts (the
+  // only case that page can render), also pull whichever MarketingRequest
+  // (if any) that project happens to be linked to — a Creator Studio draft
+  // with no linked request just won't have a click-through target yet.
+  const draftInclude = {
+    contentProject: {
+      include: {
+        marketingRequests: { take: 1 as const, select: { marketingRequestId: true } },
+      },
+    },
+  };
+
   const [scheduled, unscheduled] = await Promise.all([
     prisma.contentDraft.findMany({
       where: { scheduledFor: { gte: gridStart, lt: gridEnd } },
-      include: { request: true },
+      include: draftInclude,
       orderBy: { scheduledFor: "asc" },
     }),
     prisma.contentDraft.findMany({
       where: { scheduledFor: null, status: { not: "APPROVED" } },
-      include: { request: true },
+      include: draftInclude,
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
   ]);
+
+  function linkedRequestId(draft: (typeof scheduled)[number]) {
+    return draft.contentProject.marketingRequests[0]?.marketingRequestId ?? null;
+  }
 
   const byDay = new Map<string, typeof scheduled>();
   for (const draft of scheduled) {
@@ -111,16 +128,20 @@ export default async function CalendarPage({
                 {day.date.getUTCDate()}
               </span>
               <div className="mt-1 flex flex-col gap-1">
-                {items.slice(0, 3).map((item) => (
-                  <Link
-                    key={item.id}
-                    href={`/requests/${item.requestId}`}
-                    className={`truncate rounded px-1 py-0.5 text-[10px] font-medium ${draftStatusBadgeClass(item.status)}`}
-                    title={item.title ?? item.request.title}
-                  >
-                    {CONTENT_CHANNEL_LABELS[item.channel]}: {item.title ?? item.request.title}
-                  </Link>
-                ))}
+                {items.slice(0, 3).map((item) => {
+                  const title = item.title ?? item.contentProject.title;
+                  const requestId = linkedRequestId(item);
+                  const className = `truncate rounded px-1 py-0.5 text-[10px] font-medium ${draftStatusBadgeClass(item.status)}`;
+                  return requestId ? (
+                    <Link key={item.id} href={`/requests/${requestId}`} className={className} title={title}>
+                      {CONTENT_CHANNEL_LABELS[item.channel]}: {title}
+                    </Link>
+                  ) : (
+                    <span key={item.id} className={className} title={title}>
+                      {CONTENT_CHANNEL_LABELS[item.channel]}: {title}
+                    </span>
+                  );
+                })}
                 {items.length > 3 && (
                   <span className="text-[10px] text-[var(--slate)]">
                     +{items.length - 3} more
@@ -138,18 +159,29 @@ export default async function CalendarPage({
             Not scheduled yet ({unscheduled.length})
           </h2>
           <div className="flex flex-col gap-2">
-            {unscheduled.map((draft) => (
-              <Link
-                key={draft.id}
-                href={`/requests/${draft.requestId}`}
-                className="flex items-center justify-between rounded-lg border border-[var(--attention)] bg-[var(--attention-soft)] px-3 py-2 text-sm"
-              >
-                <span>
-                  {CONTENT_CHANNEL_LABELS[draft.channel]}: {draft.title ?? draft.request.title}
-                </span>
-                <span className="text-xs text-[var(--attention)]">Needs a date</span>
-              </Link>
-            ))}
+            {unscheduled.map((draft) => {
+              const title = draft.title ?? draft.contentProject.title;
+              const requestId = linkedRequestId(draft);
+              const className =
+                "flex items-center justify-between rounded-lg border border-[var(--attention)] bg-[var(--attention-soft)] px-3 py-2 text-sm";
+              const content = (
+                <>
+                  <span>
+                    {CONTENT_CHANNEL_LABELS[draft.channel]}: {title}
+                  </span>
+                  <span className="text-xs text-[var(--attention)]">Needs a date</span>
+                </>
+              );
+              return requestId ? (
+                <Link key={draft.id} href={`/requests/${requestId}`} className={className}>
+                  {content}
+                </Link>
+              ) : (
+                <div key={draft.id} className={className}>
+                  {content}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

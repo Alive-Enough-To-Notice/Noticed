@@ -7,11 +7,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-import { searchContent, updateDraft } from "../lib/services/content";
-// createContentDraft is intentionally NOT imported here right now — the
-// create_content_draft tool below is paused at the MCP boundary rather than
-// wired to it, so the fake-MarketingRequest problem can't fire even by
-// accident. The function itself is untouched in src/lib/services/content.ts.
+import { searchContent, createContentDraft, updateDraft } from "../lib/services/content";
 import { getBrandContext } from "../lib/services/brand-context";
 import { getCalendarEntries } from "../lib/services/calendar";
 import { BRAND_KEYS } from "../lib/brands";
@@ -75,46 +71,48 @@ server.registerTool(
   },
 );
 
+// Re-enabled after the ContentProject decoupling: every ContentDraft now
+// belongs to exactly one ContentProject, never a fabricated MarketingRequest.
+// A discriminated union on "target" so "start something new" and "add to
+// something that already exists" can never be ambiguously combined into one
+// call — they're genuinely different operations with different required
+// fields.
+const contentChannelSchema = z.enum(["BLOG", "LINKEDIN", "X"]);
+
+const createContentDraftSchema = z.discriminatedUnion("target", [
+  z.object({
+    target: z.literal("new_project").describe("Start a brand-new ContentProject (and its originating Idea) for this draft."),
+    brandKey: requiredBrandKeySchema,
+    projectTitle: z.string().describe("A short title for the new content project this draft starts."),
+    premise: z.string().optional().describe("Optional longer description of what this project is about."),
+    ideaContent: z.string().optional().describe("The raw idea/fragment this came from, in your own words. Defaults to projectTitle if omitted."),
+    channel: contentChannelSchema.describe("Which channel this content is written for."),
+    draftTitle: z.string().optional().describe("Optional distinct headline for this specific draft, if different from the project title (e.g. a blog headline)."),
+    body: z.string().describe("The complete, finished content to save exactly as-is — already written by you, not a brief for Noticed to expand on."),
+    scheduledFor: z.string().nullable().optional().describe("ISO date to schedule this for, or omit/null to leave unscheduled."),
+  }),
+  z.object({
+    target: z.literal("existing_project").describe("Add this draft to a ContentProject that already exists."),
+    contentProjectId: z.string().describe("The ID of the existing ContentProject to add this draft to."),
+    brandKey: requiredBrandKeySchema.describe("Must match the project's actual brand — verified, not assumed. The call fails if it doesn't match."),
+    channel: contentChannelSchema.describe("Which channel this content is written for."),
+    draftTitle: z.string().optional().describe("Optional distinct headline for this specific draft."),
+    body: z.string().describe("The complete, finished content to save exactly as-is."),
+    scheduledFor: z.string().nullable().optional().describe("ISO date to schedule this for, or omit/null to leave unscheduled."),
+  }),
+]);
+
 server.registerTool(
   "create_content_draft",
   {
     title: "Create content draft",
     description:
-      "PAUSED — do not call this expecting it to succeed. Every ContentDraft currently requires a MarketingRequest parent (a company-marketing-operations concept: an internal stakeholder requesting work from a marketing function). Saving a personal Creator Studio draft today would mean fabricating a fake MarketingRequest to satisfy that constraint — a semantically false record, not a harmless placeholder. This tool is disabled until a ContentProject parent model exists so Creator Studio content has a home that isn't a lie. See docs/content-project-decoupling-proposal.md.",
-    inputSchema: {
-      brandKey: requiredBrandKeySchema,
-      title: z.string().describe("A short title for this piece of content / the request it belongs to."),
-      channel: z.enum(["BLOG", "LINKEDIN", "X"]).describe("Which channel this content is written for."),
-      body: z.string().describe("The complete, finished content to save exactly as-is — already written by you, not a brief for Noticed to expand on."),
-      draftTitle: z.string().optional().describe("Optional distinct headline for this specific draft, if different from the overall title (e.g. a blog headline)."),
-      description: z.string().optional().describe("Optional short note on what this content is / where the idea came from."),
-      scheduledFor: z
-        .string()
-        .nullable()
-        .optional()
-        .describe("ISO date to schedule this for, or omit/null to leave unscheduled."),
-    },
+      "Save content YOU (the connected AI client) already wrote in this conversation — using your own model, not Noticed's. Saves the supplied title and body exactly as given; does not generate, rewrite, or call any model. Every draft belongs to a ContentProject, never a MarketingRequest — this never fabricates a fake marketing-operations record. Use target: \"new_project\" to start something new (also creates the originating Idea), or target: \"existing_project\" to add to a project you already started. brandKey is always required and is verified against the actual project brand for existing_project — never guess or default it.",
+    inputSchema: createContentDraftSchema,
   },
-  async () => {
-    // Fails closed, on purpose, before touching the database at all.
-    // createContentDraft() in src/lib/services/content.ts is untouched —
-    // this is a deliberate pause at the MCP boundary, not a deletion of
-    // prior work. Every ContentDraft today requires a MarketingRequest
-    // (ContentDraft.requestId is a required, non-nullable FK) — and
-    // MarketingRequest specifically represents an internal stakeholder
-    // requesting work from a company marketing function, a different
-    // product than this personal Creator Studio. Re-enabling this tool
-    // means fabricating one of those company-marketing-operations
-    // records for every personal idea, which is a false record, not a
-    // convenience. See docs/content-project-decoupling-proposal.md for
-    // the approved fix before this tool is turned back on.
-    throw new Error(
-      "create_content_draft is paused: Creator Studio persistence model not yet enabled. " +
-        "Saving a draft today would require fabricating a MarketingRequest (a company-marketing-operations concept) " +
-        "to satisfy ContentDraft's current required parent, which would be a false record. " +
-        "This is disabled until a ContentProject model exists for Creator Studio content to belong to instead. " +
-        "Read-only tools (search_content, get_brand_context, get_calendar) remain available.",
-    );
+  async (args) => {
+    const result = await createContentDraft(args);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   },
 );
 
@@ -123,7 +121,7 @@ server.registerTool(
   {
     title: "Update draft",
     description:
-      "Revise an existing content draft's body, title, or scheduled date. Saves the supplied text exactly as given — does not regenerate or rewrite it. Does not publish or change approval status. A draft's brand is fixed by its parent request and cannot be changed here.",
+      "Revise an existing content draft's body, title, or scheduled date. Saves the supplied text exactly as given — does not regenerate or rewrite it. Does not publish or change approval status. A draft's brand is fixed by its parent ContentProject and cannot be changed here.",
     inputSchema: {
       draftId: z.string().describe("The ID of the draft to update."),
       body: z.string().optional().describe("New draft body text."),

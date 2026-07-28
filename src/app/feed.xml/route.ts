@@ -16,7 +16,13 @@ function escapeXml(value: string): string {
 export async function GET(request: Request) {
   const drafts = await prisma.contentDraft.findMany({
     where: { channel: "BLOG", status: "APPROVED" },
-    include: { request: true },
+    include: {
+      contentProject: {
+        include: {
+          marketingRequests: { take: 1, select: { marketingRequestId: true } },
+        },
+      },
+    },
     orderBy: { approvedAt: "desc" },
     take: 50,
   });
@@ -25,10 +31,16 @@ export async function GET(request: Request) {
 
   const items = drafts
     .map((draft) => {
-      const link = `${siteUrl}/requests/${draft.requestId}`;
+      // A draft's project may not be linked to any MarketingRequest (a
+      // Creator Studio piece) — there's no request page to send readers to
+      // yet, so fall back to the calendar rather than a broken link.
+      const linkedRequestId = draft.contentProject.marketingRequests[0]?.marketingRequestId;
+      const link = linkedRequestId
+        ? `${siteUrl}/requests/${linkedRequestId}`
+        : `${siteUrl}/calendar`;
       const pubDate = (draft.approvedAt ?? draft.createdAt).toUTCString();
       return `    <item>
-      <title>${escapeXml(draft.request.title)}</title>
+      <title>${escapeXml(draft.contentProject.title)}</title>
       <link>${escapeXml(link)}</link>
       <guid isPermaLink="false">${draft.id}</guid>
       <pubDate>${pubDate}</pubDate>

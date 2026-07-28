@@ -11,18 +11,19 @@ export async function getCalendarEntries(args: {
   const drafts = await prisma.contentDraft.findMany({
     where: {
       scheduledFor: { gte: new Date(args.from), lt: new Date(args.to) },
-      ...(brand ? { request: { brandId: brand.id } } : {}),
+      ...(brand ? { contentProject: { brandId: brand.id } } : {}),
     },
-    include: { request: { include: { brand: true } } },
+    include: { contentProject: { include: { brand: true } } },
     orderBy: { scheduledFor: "asc" },
   });
 
   return drafts.map((d) => ({
     id: d.id,
-    title: d.title ?? d.request.title,
+    contentProjectId: d.contentProjectId,
+    title: d.title ?? d.contentProject.title,
     channel: d.channel,
     status: d.status,
     scheduledFor: d.scheduledFor?.toISOString() ?? null,
-    brand: d.request.brand.name,
+    brand: d.contentProject.brand.name,
   }));
 }

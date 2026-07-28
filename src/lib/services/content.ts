@@ -4,7 +4,7 @@
 // surfaces can never drift into duplicate logic.
 import { prisma } from "@/lib/prisma";
 import { resolveBrand } from "@/lib/brands";
-import { getOwnerName } from "@/lib/owner";
+import { assertProjectBrand } from "@/lib/services/content-projects";
 import type { ContentChannel } from "@/generated/prisma/client";
 
 export async function searchContent(args: { query: string; brandKey?: string }) {
@@ -18,7 +18,10 @@ export async function searchContent(args: { query: string; brandKey?: string }) 
         { description: { contains: args.query } },
       ],
     },
-    include: { brand: true, drafts: true },
+    include: {
+      brand: true,
+      contentProjects: { include: { contentProject: { include: { drafts: true } } } },
+    },
     orderBy: { createdAt: "desc" },
     take: 25,
   });
@@ -26,9 +29,9 @@ export async function searchContent(args: { query: string; brandKey?: string }) 
   const drafts = await prisma.contentDraft.findMany({
     where: {
       body: { contains: args.query },
-      ...(brand ? { request: { brandId: brand.id } } : {}),
+      ...(brand ? { contentProject: { brandId: brand.id } } : {}),
     },
-    include: { request: { include: { brand: true } } },
+    include: { contentProject: { include: { brand: true } } },
     orderBy: { createdAt: "desc" },
     take: 25,
   });
@@ -40,15 +43,20 @@ export async function searchContent(args: { query: string; brandKey?: string }) 
       description: r.description,
       brand: r.brand.name,
       status: r.status,
-      draftCount: r.drafts.length,
+      // Reached through the request's linked ContentProject(s), never a
+      // direct drafts relation — MarketingRequest doesn't parent drafts.
+      draftCount: r.contentProjects.reduce(
+        (sum, link) => sum + link.contentProject.drafts.length,
+        0,
+      ),
     })),
     drafts: drafts.map((d) => ({
       id: d.id,
-      requestId: d.requestId,
-      title: d.title ?? d.request.title,
+      contentProjectId: d.contentProjectId,
+      title: d.title ?? d.contentProject.title,
       channel: d.channel,
       status: d.status,
-      brand: d.request.brand.name,
+      brand: d.contentProject.brand.name,
       excerpt: d.body.slice(0, 200),
     })),
   };
@@ -60,26 +68,59 @@ export async function searchContent(args: { query: string; brandKey?: string }) 
 // model. The brief goes in exactly as given; no Anthropic/OpenAI call, no
 // AI-based compliance re-check (that was a second model call and is exactly
 // the pattern this architecture removes).
-export async function createContentDraft(args: {
-  brandKey: string;
-  title: string;
-  channel: ContentChannel;
-  body: string;
-  draftTitle?: string;
-  description?: string;
-  scheduledFor?: string | null;
-}) {
-  // Deliberately not optional and not defaulted, unlike other brandKey
-  // params in this file. A conversational caller (MCP) has no equivalent
-  // of the web form's required <select> forcing a real choice — silently
-  // falling back to the default brand here would let an ambiguous idea
-  // ("that thing about admin burden") quietly land under the wrong brand
-  // instead of failing loudly.
+//
+// A discriminated union on purpose — "start something new" and "add to
+// something that already exists" are genuinely different operations with
+// different required fields, and must not be combinable into one ambiguous
+// shape. Every ContentDraft belongs to exactly one ContentProject; there is
+// no fabricated MarketingRequest anywhere in this path.
+export type CreateContentDraftArgs =
+  | {
+      target: "new_project";
+      brandKey: string;
+      projectTitle: string;
+      premise?: string;
+      ideaContent?: string;
+      channel: ContentChannel;
+      draftTitle?: string;
+      body: string;
+      scheduledFor?: string | null;
+    }
+  | {
+      target: "existing_project";
+      contentProjectId: string;
+      brandKey: string;
+      channel: ContentChannel;
+      draftTitle?: string;
+      body: string;
+      scheduledFor?: string | null;
+    };
+
+export async function createContentDraft(args: CreateContentDraftArgs) {
   if (!args.brandKey) {
     throw new Error(
       "brandKey is required to save a draft — creation must not silently fall back to a default brand.",
     );
   }
+
+  if (args.target === "existing_project") {
+    // Brand match is verified here, not assumed from the caller's own
+    // claim — "Actor has access" reduces to this check in a single-owner
+    // app with no further identity boundary to enforce.
+    await assertProjectBrand(args.contentProjectId, args.brandKey);
+
+    const draft = await prisma.contentDraft.create({
+      data: {
+        contentProjectId: args.contentProjectId,
+        channel: args.channel,
+        title: args.draftTitle ?? null,
+        body: args.body,
+        scheduledFor: args.scheduledFor ? new Date(args.scheduledFor) : null,
+      },
+    });
+    return { project: await prisma.contentProject.findUniqueOrThrow({ where: { id: args.contentProjectId } }), draft };
+  }
+
   const brand = await resolveBrand(args.brandKey);
 
   // Lineage only — which knowledge was APPROVED for this brand at save
@@ -90,44 +131,46 @@ export async function createContentDraft(args: {
     where: { brandId: brand.id, status: "APPROVED" },
   });
 
-  const request = await prisma.marketingRequest.create({
-    data: {
-      brandId: brand.id,
-      type: "BLOG_OR_SOCIAL_CONTENT",
-      title: args.title,
-      description: args.description ?? null,
-      // Identity comes from trusted local config, never from the MCP
-      // caller — see src/lib/owner.ts.
-      requesterName: getOwnerName(),
-      status: "IN_PROGRESS",
-      activities: {
-        create: { type: "CREATED", message: "Captured from a conversation" },
+  // All four writes succeed together or not at all — a failure partway
+  // through (e.g. a bad scheduledFor date) must not leave a dangling Idea
+  // or ContentProject with no draft, the same bug fixed earlier for the
+  // old create_draft_from_idea.
+  return prisma.$transaction(async (tx) => {
+    const idea = await tx.idea.create({
+      data: {
+        brandId: brand.id,
+        content: args.ideaContent ?? args.projectTitle,
+        source: "Captured from a conversation",
       },
-    },
-  });
+    });
 
-  const draft = await prisma.contentDraft.create({
-    data: {
-      requestId: request.id,
-      channel: args.channel,
-      title: args.draftTitle ?? null,
-      body: args.body,
-      scheduledFor: args.scheduledFor ? new Date(args.scheduledFor) : null,
-      knowledgeLinks: {
-        create: approvedKnowledge.map((k) => ({ knowledgeRecordId: k.id })),
+    const project = await tx.contentProject.create({
+      data: {
+        brandId: brand.id,
+        title: args.projectTitle,
+        premise: args.premise ?? null,
       },
-    },
-  });
+    });
 
-  await prisma.activity.create({
-    data: {
-      marketingRequestId: request.id,
-      type: "CONTENT_GENERATED",
-      message: `${args.channel} draft saved from a connected AI client`,
-    },
-  });
+    await tx.ideaContentProject.create({
+      data: { ideaId: idea.id, contentProjectId: project.id },
+    });
 
-  return { request, draft };
+    const draft = await tx.contentDraft.create({
+      data: {
+        contentProjectId: project.id,
+        channel: args.channel,
+        title: args.draftTitle ?? null,
+        body: args.body,
+        scheduledFor: args.scheduledFor ? new Date(args.scheduledFor) : null,
+        knowledgeLinks: {
+          create: approvedKnowledge.map((k) => ({ knowledgeRecordId: k.id })),
+        },
+      },
+    });
+
+    return { idea, project, draft };
+  });
 }
 
 export async function updateDraft(args: {
@@ -148,16 +191,25 @@ export async function updateDraft(args: {
     data,
   });
 
-  await prisma.activity.create({
-    data: {
-      marketingRequestId: (await prisma.contentDraft.findUniqueOrThrow({
-        where: { id: args.draftId },
-        select: { requestId: true },
-      })).requestId,
-      type: "DRAFT_REVISED",
-      message: `${draft.channel} draft revised`,
-    },
+  // Best-effort activity logging against a linked MarketingRequest, if one
+  // exists. A pure Creator Studio project (no linked request) simply
+  // doesn't get an Activity row yet — there's nothing to log it against,
+  // and giving Activity a second, nullable parent just to cover this case
+  // would be exactly the ambiguous-ownership pattern removed from
+  // ContentDraft itself. This is a real, acknowledged gap, not an oversight.
+  const link = await prisma.marketingRequestContentProject.findFirst({
+    where: { contentProjectId: draft.contentProjectId },
+    select: { marketingRequestId: true },
   });
+  if (link) {
+    await prisma.activity.create({
+      data: {
+        marketingRequestId: link.marketingRequestId,
+        type: "DRAFT_REVISED",
+        message: `${draft.channel} draft revised`,
+      },
+    });
+  }
 
   return draft;
 }

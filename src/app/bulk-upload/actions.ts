@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { parse } from "csv-parse/sync";
 import { prisma } from "@/lib/prisma";
 import { resolveBrand } from "@/lib/brands";
+import { getOrCreateProjectForRequest } from "@/lib/services/content-projects";
 import type { ContentChannel } from "@/generated/prisma/client";
 
 const VALID_CHANNELS: ContentChannel[] = ["BLOG", "LINKEDIN", "X"];
@@ -90,9 +91,14 @@ export async function bulkImport(formData: FormData) {
     },
   });
 
+  // Every ContentDraft belongs to a ContentProject, never the request
+  // directly — a fresh request has no existing link yet, so this creates
+  // one wrapping project for the whole batch.
+  const project = await getOrCreateProjectForRequest(request.id);
+
   await prisma.contentDraft.createMany({
     data: rows.map((row) => ({
-      requestId: request.id,
+      contentProjectId: project.id,
       channel: row.channel,
       title: row.title,
       body: row.body,

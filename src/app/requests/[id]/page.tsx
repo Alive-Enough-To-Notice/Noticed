@@ -47,17 +47,29 @@ export default async function RequestDetailPage({
     where: { id },
     include: {
       activities: { orderBy: { createdAt: "desc" } },
-      drafts: {
-        orderBy: { createdAt: "asc" },
+      // MarketingRequest doesn't parent drafts directly — it reaches them
+      // through whichever ContentProject(s) it's linked to.
+      contentProjects: {
         include: {
-          publishAttempts: { orderBy: { createdAt: "desc" } },
-          knowledgeLinks: { include: { knowledgeRecord: true } },
+          contentProject: {
+            include: {
+              drafts: {
+                orderBy: { createdAt: "asc" },
+                include: {
+                  publishAttempts: { orderBy: { createdAt: "desc" } },
+                  knowledgeLinks: { include: { knowledgeRecord: true } },
+                },
+              },
+            },
+          },
         },
       },
     },
   });
 
   if (!request) notFound();
+
+  const drafts = request.contentProjects.flatMap((link) => link.contentProject.drafts);
 
   const updateStatusWithId = updateStatus.bind(null, request.id);
   const assignOwnerWithId = assignOwner.bind(null, request.id);
@@ -223,13 +235,13 @@ export default async function RequestDetailPage({
           saved. Or start a blank draft above and write it directly.
         </div>
 
-        {request.drafts.length === 0 ? (
+        {drafts.length === 0 ? (
           <p className="text-sm text-[var(--slate)]">
             No drafts yet.
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-3">
-            {request.drafts.map((draft) => {
+            {drafts.map((draft) => {
               const approveDraftWithIds = approveDraft.bind(
                 null,
                 request.id,

@@ -12,18 +12,21 @@ datasource db {
 
 // Single-owner, multiple brand voices — NOT multi-tenant (no client
 // workspaces, no customer accounts, no auth boundary between brands, just
-// keeping one person's several voices from blending). Requests and
-// KnowledgeRecords get a direct brandId; everything else (drafts,
-// activities, publish attempts) derives brand through its parent relation
-// rather than duplicating the column everywhere.
+// keeping one person's several voices from blending). The true entry-point
+// models (MarketingRequest, KnowledgeRecord, ContentProject, Idea) get a
+// direct brandId; everything else (drafts, activities, publish attempts,
+// the request/idea<->project relation tables) derives brand through its
+// parent relation rather than duplicating the column everywhere.
 model Brand {
   id        String  @id @default(cuid())
   key       String  @unique
   name      String
   isDefault Boolean @default(false)
 
-  requests        MarketingRequest[]
+  requests         MarketingRequest[]
   knowledgeRecords KnowledgeRecord[]
+  contentProjects  ContentProject[]
+  ideas            Idea[]
 }
 
 // The requester's ask — kept intentionally broad since one form covers all
@@ -80,7 +83,13 @@ model MarketingRequest {
   updatedAt     DateTime         @updatedAt
 
   activities Activity[]
-  drafts     ContentDraft[]
+  // MarketingRequest no longer parents ContentDraft directly — it reaches
+  // content through a ContentProject (see MarketingRequestContentProject),
+  // the same door Creator Studio's Idea model uses. A request represents a
+  // company-marketing-operations ask; it is a different real-world thing
+  // from a personal idea, so the two intake models stay separate even
+  // though both can produce drafts through the same shared ContentProject.
+  contentProjects MarketingRequestContentProject[]
 }
 
 // Auto-logged on every status change, owner assignment, and note — the
@@ -108,18 +117,105 @@ enum DraftStatus {
   APPROVED
 }
 
+// The shared production parent for every piece of content, regardless of
+// which door it came through. A ContentProject is created either from a
+// personal Idea (Creator Studio) or triaged from a MarketingRequest
+// (Marketing Operations) — via the two join models below — but it can also
+// exist on its own, with neither. ContentDraft belongs to exactly one
+// ContentProject; it never depends on which intake method produced it.
+enum ContentProjectStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+model ContentProject {
+  id        String               @id @default(cuid())
+  brandId   String
+  brand     Brand                @relation(fields: [brandId], references: [id])
+  title     String
+  premise   String?
+  status    ContentProjectStatus @default(ACTIVE)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  // onDelete is deliberately NOT Cascade on ContentDraft's side (see below)
+  // — a project with real drafts can't be casually deleted. These two join
+  // tables are pure linkage bookkeeping, not content, so cascading their
+  // own rows when a project is deleted is safe and just tidies up.
+  drafts            ContentDraft[]
+  marketingRequests MarketingRequestContentProject[]
+  ideas             IdeaContentProject[]
+}
+
+// Personal, format-less capture — "there's something here," before it's
+// decided whether it becomes a blog, a podcast, or a social post. Brand is
+// required directly (same pattern as MarketingRequest/KnowledgeRecord —
+// the true entry-point models get a direct brandId).
+model Idea {
+  id        String   @id @default(cuid())
+  brandId   String
+  brand     Brand    @relation(fields: [brandId], references: [id])
+  content   String
+  source    String?
+  createdAt DateTime @default(now())
+
+  contentProjects IdeaContentProject[]
+}
+
+// Relation table, not a direct FK on either side — a MarketingRequest can
+// spawn more than one ContentProject (e.g. one campaign ask producing a
+// separate blog project and a separate social-only project), and one
+// ContentProject can in principle satisfy more than one request. Deleting
+// this row only removes the link; it never deletes the request or the
+// project on either side. onDelete: Cascade here means "when the request
+// itself is deleted, its links disappear too" — the project and its
+// drafts are untouched, since this table doesn't own them.
+model MarketingRequestContentProject {
+  id                 String           @id @default(cuid())
+  marketingRequestId String
+  marketingRequest   MarketingRequest @relation(fields: [marketingRequestId], references: [id], onDelete: Cascade)
+  contentProjectId   String
+  contentProject     ContentProject   @relation(fields: [contentProjectId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now())
+
+  @@unique([marketingRequestId, contentProjectId])
+}
+
+// Same shape as MarketingRequestContentProject, for Idea instead — one
+// idea can grow into multiple projects, and a project can combine more
+// than one idea. Deleting an Idea only removes this link, never the
+// project or its drafts.
+model IdeaContentProject {
+  id               String         @id @default(cuid())
+  ideaId           String
+  idea             Idea           @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  contentProjectId String
+  contentProject   ContentProject @relation(fields: [contentProjectId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+
+  @@unique([ideaId, contentProjectId])
+}
+
 // One request generates a package of channel-adapted drafts in one AI call —
 // the "one brief becomes a coordinated package" promise, scoped down to a
 // first, provable slice.
 model ContentDraft {
-  id         String           @id @default(cuid())
-  requestId  String
-  request    MarketingRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  id               String         @id @default(cuid())
+  // The ONLY parent — every ContentDraft belongs to exactly one
+  // ContentProject, full stop. There is no second, competing way to
+  // determine ownership (no requestId here anymore): a draft never has to
+  // fabricate a MarketingRequest to exist, and it never has two possible
+  // parents to reconcile. onDelete: Restrict — a ContentProject with real
+  // drafts cannot be deleted; drafts must be reassigned or removed first.
+  contentProjectId String
+  contentProject   ContentProject @relation(fields: [contentProjectId], references: [id], onDelete: Restrict)
   channel    ContentChannel
-  // Falls back to the parent request's title when null (the normal
-  // one-request-to-few-drafts flow). Bulk-imported drafts (see
-  // BulkImportRow) set their own, since many drafts share one container
-  // request and need to be individually identifiable on the calendar.
+  // Falls back to the parent project's title when null (the normal
+  // one-project-to-few-drafts flow). Bulk-imported drafts set their own,
+  // since many drafts share one container project and need to be
+  // individually identifiable on the calendar.
   title      String?
   body       String
   status     DraftStatus      @default(DRAFT)

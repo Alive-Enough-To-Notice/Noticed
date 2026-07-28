@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { REQUEST_STATUS_LABELS } from "@/lib/requests";
+import { getOrCreateProjectForRequest } from "@/lib/services/content-projects";
 import { publish, type PublishableDestinationKey } from "@/lib/publishers";
 import type { RequestStatus } from "@/generated/prisma/client";
 
@@ -91,8 +92,13 @@ export async function createManualDraft(requestId: string, formData: FormData) {
   const channel = String(formData.get("channel") ?? "") as "BLOG" | "LINKEDIN" | "X";
   if (!channel) throw new Error("Channel is required");
 
+  // Every ContentDraft belongs to a ContentProject, never the request
+  // directly — this finds (or creates, on first use) the project this
+  // request routes through.
+  const project = await getOrCreateProjectForRequest(requestId);
+
   await prisma.contentDraft.create({
-    data: { requestId, channel, body: "" },
+    data: { contentProjectId: project.id, channel, body: "" },
   });
 
   await prisma.activity.create({
@@ -201,12 +207,12 @@ export async function publishDraft(
 
   const draft = await prisma.contentDraft.findUniqueOrThrow({
     where: { id: draftId },
-    include: { request: true },
+    include: { contentProject: true },
   });
 
   try {
     const result = await publish(destination, {
-      title: draft.request.title,
+      title: draft.contentProject.title,
       body: draft.body,
     });
 
