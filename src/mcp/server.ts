@@ -7,7 +7,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-import { searchContent, createContentDraft, updateDraft } from "../lib/services/content";
+import { searchContent, updateDraft } from "../lib/services/content";
+// createContentDraft is intentionally NOT imported here right now — the
+// create_content_draft tool below is paused at the MCP boundary rather than
+// wired to it, so the fake-MarketingRequest problem can't fire even by
+// accident. The function itself is untouched in src/lib/services/content.ts.
 import { getBrandContext } from "../lib/services/brand-context";
 import { getCalendarEntries } from "../lib/services/calendar";
 import { BRAND_KEYS } from "../lib/brands";
@@ -76,7 +80,7 @@ server.registerTool(
   {
     title: "Create content draft",
     description:
-      "Save content YOU (the connected AI client) already wrote in this conversation — using your own model, not Noticed's. This tool saves the supplied title and body exactly as given; it does not generate, rewrite, or otherwise call any model. brandKey is required: never guess or default it — if the right brand isn't clear from the conversation, ask the user before calling this tool. Attribution is handled by Noticed's own trusted local configuration, not by you.",
+      "PAUSED — do not call this expecting it to succeed. Every ContentDraft currently requires a MarketingRequest parent (a company-marketing-operations concept: an internal stakeholder requesting work from a marketing function). Saving a personal Creator Studio draft today would mean fabricating a fake MarketingRequest to satisfy that constraint — a semantically false record, not a harmless placeholder. This tool is disabled until a ContentProject parent model exists so Creator Studio content has a home that isn't a lie. See docs/content-project-decoupling-proposal.md.",
     inputSchema: {
       brandKey: requiredBrandKeySchema,
       title: z.string().describe("A short title for this piece of content / the request it belongs to."),
@@ -91,17 +95,26 @@ server.registerTool(
         .describe("ISO date to schedule this for, or omit/null to leave unscheduled."),
     },
   },
-  async ({ brandKey, title, channel, body, draftTitle, description, scheduledFor }) => {
-    const result = await createContentDraft({
-      brandKey,
-      title,
-      channel,
-      body,
-      draftTitle,
-      description,
-      scheduledFor,
-    });
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  async () => {
+    // Fails closed, on purpose, before touching the database at all.
+    // createContentDraft() in src/lib/services/content.ts is untouched —
+    // this is a deliberate pause at the MCP boundary, not a deletion of
+    // prior work. Every ContentDraft today requires a MarketingRequest
+    // (ContentDraft.requestId is a required, non-nullable FK) — and
+    // MarketingRequest specifically represents an internal stakeholder
+    // requesting work from a company marketing function, a different
+    // product than this personal Creator Studio. Re-enabling this tool
+    // means fabricating one of those company-marketing-operations
+    // records for every personal idea, which is a false record, not a
+    // convenience. See docs/content-project-decoupling-proposal.md for
+    // the approved fix before this tool is turned back on.
+    throw new Error(
+      "create_content_draft is paused: Creator Studio persistence model not yet enabled. " +
+        "Saving a draft today would require fabricating a MarketingRequest (a company-marketing-operations concept) " +
+        "to satisfy ContentDraft's current required parent, which would be a false record. " +
+        "This is disabled until a ContentProject model exists for Creator Studio content to belong to instead. " +
+        "Read-only tools (search_content, get_brand_context, get_calendar) remain available.",
+    );
   },
 );
 
