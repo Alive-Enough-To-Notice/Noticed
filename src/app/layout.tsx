@@ -38,8 +38,14 @@ export default function RootLayout({
               <Link href="/" className="hover:text-[var(--accent)]">
                 Workbench
               </Link>
+              <Link href="/calendar" className="hover:text-[var(--accent)]">
+                Calendar
+              </Link>
               <Link href="/requests/new" className="hover:text-[var(--accent)]">
                 New request
+              </Link>
+              <Link href="/bulk-upload" className="hover:text-[var(--accent)]">
+                Bulk upload
               </Link>
               <Link href="/brand" className="hover:text-[var(--accent)]">
                 Brand

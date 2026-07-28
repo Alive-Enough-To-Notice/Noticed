@@ -25,6 +25,7 @@ import {
   generateContent,
   approveDraft,
   publishDraft,
+  setDraftSchedule,
 } from "./actions";
 
 const DESTINATION_LABELS = Object.fromEntries(
@@ -33,10 +34,13 @@ const DESTINATION_LABELS = Object.fromEntries(
 
 export default async function RequestDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ imported?: string; skipped?: string }>;
 }) {
   const { id } = await params;
+  const { imported, skipped } = await searchParams;
 
   const request = await prisma.marketingRequest.findUnique({
     where: { id },
@@ -62,6 +66,14 @@ export default async function RequestDetailPage({
 
   return (
     <div className="flex flex-col gap-8">
+      {imported && (
+        <div className="rounded-lg border border-[var(--success)] bg-[var(--success-soft)] p-3 text-sm text-[var(--success)]">
+          Imported {imported} post{imported === "1" ? "" : "s"}
+          {skipped && skipped !== "0" ? ` — skipped ${skipped} invalid row(s)` : ""}.
+          Check the <a href="/calendar" className="underline">calendar</a> to
+          see them scheduled.
+        </div>
+      )}
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-[var(--slate)]">
@@ -210,6 +222,11 @@ export default async function RequestDetailPage({
                 draft.id,
               );
               const destinationKeys = CHANNEL_DESTINATIONS[draft.channel] ?? [];
+              const setDraftScheduleWithIds = setDraftSchedule.bind(
+                null,
+                request.id,
+                draft.id,
+              );
               return (
                 <div
                   key={draft.id}
@@ -218,6 +235,9 @@ export default async function RequestDetailPage({
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold">
                       {CONTENT_CHANNEL_LABELS[draft.channel]}
+                      {draft.title && draft.title !== request.title
+                        ? ` — ${draft.title}`
+                        : ""}
                     </h3>
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${draftStatusBadgeClass(draft.status)}`}
@@ -228,6 +248,26 @@ export default async function RequestDetailPage({
                   <p className="whitespace-pre-wrap text-sm text-[var(--ink)]">
                     {draft.body}
                   </p>
+
+                  <form
+                    action={setDraftScheduleWithIds}
+                    className="flex items-center gap-2 text-xs"
+                  >
+                    <span className="text-[var(--slate)]">Scheduled:</span>
+                    <input
+                      key={draft.scheduledFor?.toISOString()}
+                      type="date"
+                      name="scheduledFor"
+                      defaultValue={draft.scheduledFor?.toISOString().slice(0, 10) ?? ""}
+                      className="rounded border border-[var(--card-border)] px-2 py-1 text-xs"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded bg-[var(--accent)] px-2 py-1 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
+                    >
+                      Save
+                    </button>
+                  </form>
 
                   {draft.knowledgeLinks.length > 0 && (
                     <p className="text-xs text-[var(--slate)]">

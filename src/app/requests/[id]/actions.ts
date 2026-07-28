@@ -191,6 +191,32 @@ export async function approveDraft(
   revalidatePath(`/requests/${requestId}`);
 }
 
+export async function setDraftSchedule(
+  requestId: string,
+  draftId: string,
+  formData: FormData,
+) {
+  const scheduledFor = String(formData.get("scheduledFor") ?? "").trim();
+
+  const draft = await prisma.contentDraft.update({
+    where: { id: draftId },
+    data: { scheduledFor: scheduledFor ? new Date(scheduledFor) : null },
+  });
+
+  await prisma.activity.create({
+    data: {
+      marketingRequestId: requestId,
+      type: "SCHEDULED",
+      message: scheduledFor
+        ? `${draft.channel} draft scheduled for ${new Date(scheduledFor).toLocaleDateString(undefined, { timeZone: "UTC" })}`
+        : `${draft.channel} draft unscheduled`,
+    },
+  });
+
+  revalidatePath(`/requests/${requestId}`);
+  revalidatePath("/calendar");
+}
+
 // Records a PublishAttempt either way — success or failure — so a broken or
 // missing credential shows up as an honest record, not a silent no-op.
 export async function publishDraft(

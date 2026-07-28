@@ -98,10 +98,19 @@ model ContentDraft {
   requestId  String
   request    MarketingRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   channel    ContentChannel
+  // Falls back to the parent request's title when null (the normal
+  // one-request-to-few-drafts flow). Bulk-imported drafts (see
+  // BulkImportRow) set their own, since many drafts share one container
+  // request and need to be individually identifiable on the calendar.
+  title      String?
   body       String
   status     DraftStatus      @default(DRAFT)
   approvedBy String?
   approvedAt DateTime?
+
+  // When this post is meant to go out — the calendar's whole reason for
+  // existing. Null means "not scheduled yet."
+  scheduledFor DateTime?
 
   // Set by an independent second AI call that checks the generated package
   // against every APPROVED PROHIBITED_CLAIM/PROHIBITED_TERM record — null
