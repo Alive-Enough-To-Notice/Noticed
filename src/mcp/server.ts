@@ -7,7 +7,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-import { searchContent, createDraftFromIdea, updateDraft } from "../lib/services/content";
+import { searchContent, createContentDraft, updateDraft } from "../lib/services/content";
 import { getBrandContext } from "../lib/services/brand-context";
 import { getCalendarEntries } from "../lib/services/calendar";
 import { BRAND_KEYS } from "../lib/brands";
@@ -72,37 +72,35 @@ server.registerTool(
 );
 
 server.registerTool(
-  "create_draft_from_idea",
+  "create_content_draft",
   {
-    title: "Create draft from idea",
+    title: "Create content draft",
     description:
-      "Turn a rough idea into a new request plus a generated package of drafts (blog, LinkedIn, X), scoped to one brand's approved knowledge. This creates DRAFTS only — nothing is published. brandKey is required: never guess or default it — if the right brand isn't clear from the conversation, ask the user before calling this tool. Requires the owner's own ANTHROPIC_API_KEY to be set in .env.",
+      "Save content YOU (the connected AI client) already wrote in this conversation — using your own model, not Noticed's. This tool saves the supplied title and body exactly as given; it does not generate, rewrite, or otherwise call any model. brandKey is required: never guess or default it — if the right brand isn't clear from the conversation, ask the user before calling this tool. Attribution is handled by Noticed's own trusted local configuration, not by you.",
     inputSchema: {
       brandKey: requiredBrandKeySchema,
-      requesterName: z.string().describe("Name to attribute this request to."),
-      title: z.string().describe("A short title for the idea."),
-      description: z.string().optional().describe("More detail on the idea — the brief the drafts are generated from."),
-      type: z
-        .enum([
-          "CAMPAIGN",
-          "WEBSITE_CHANGE",
-          "BLOG_OR_SOCIAL_CONTENT",
-          "CUSTOMER_EMAIL",
-          "ADVERTISEMENT",
-          "LOGO_OR_CREATIVE_ASSET",
-          "PRINT_COLLATERAL",
-          "RECRUITING_SUPPORT",
-          "JOB_FAIR_OR_EVENT",
-          "PROMOTIONAL_PRODUCT",
-          "PHOTO_OR_VIDEO",
-          "SPONSORSHIP",
-        ])
+      title: z.string().describe("A short title for this piece of content / the request it belongs to."),
+      channel: z.enum(["BLOG", "LINKEDIN", "X"]).describe("Which channel this content is written for."),
+      body: z.string().describe("The complete, finished content to save exactly as-is — already written by you, not a brief for Noticed to expand on."),
+      draftTitle: z.string().optional().describe("Optional distinct headline for this specific draft, if different from the overall title (e.g. a blog headline)."),
+      description: z.string().optional().describe("Optional short note on what this content is / where the idea came from."),
+      scheduledFor: z
+        .string()
+        .nullable()
         .optional()
-        .describe("Request type — defaults to CAMPAIGN if omitted."),
+        .describe("ISO date to schedule this for, or omit/null to leave unscheduled."),
     },
   },
-  async ({ brandKey, requesterName, title, description, type }) => {
-    const result = await createDraftFromIdea({ brandKey, requesterName, title, description, type });
+  async ({ brandKey, title, channel, body, draftTitle, description, scheduledFor }) => {
+    const result = await createContentDraft({
+      brandKey,
+      title,
+      channel,
+      body,
+      draftTitle,
+      description,
+      scheduledFor,
+    });
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   },
 );
@@ -112,7 +110,7 @@ server.registerTool(
   {
     title: "Update draft",
     description:
-      "Revise an existing content draft's body, title, or scheduled date. Does not publish or change approval status.",
+      "Revise an existing content draft's body, title, or scheduled date. Saves the supplied text exactly as given — does not regenerate or rewrite it. Does not publish or change approval status. A draft's brand is fixed by its parent request and cannot be changed here.",
     inputSchema: {
       draftId: z.string().describe("The ID of the draft to update."),
       body: z.string().optional().describe("New draft body text."),

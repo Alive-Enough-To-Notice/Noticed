@@ -22,7 +22,8 @@ import {
   assignOwner,
   setMissingInfo,
   addNote,
-  generateContent,
+  createManualDraft,
+  editDraftBody,
   approveDraft,
   publishDraft,
   setDraftSchedule,
@@ -62,7 +63,7 @@ export default async function RequestDetailPage({
   const assignOwnerWithId = assignOwner.bind(null, request.id);
   const setMissingInfoWithId = setMissingInfo.bind(null, request.id);
   const addNoteWithId = addNote.bind(null, request.id);
-  const generateContentWithId = generateContent.bind(null, request.id);
+  const createManualDraftWithId = createManualDraft.bind(null, request.id);
 
   return (
     <div className="flex flex-col gap-8">
@@ -192,21 +193,39 @@ export default async function RequestDetailPage({
           <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--slate)]">
             Content drafts
           </h2>
-          <form action={generateContentWithId}>
+          <form action={createManualDraftWithId} className="flex gap-2">
+            <select
+              name="channel"
+              required
+              defaultValue=""
+              className="rounded border border-[var(--card-border)] px-2 py-1.5 text-sm"
+            >
+              <option value="" disabled>
+                Channel...
+              </option>
+              <option value="BLOG">Blog</option>
+              <option value="LINKEDIN">LinkedIn</option>
+              <option value="X">X</option>
+            </select>
             <button
               type="submit"
               className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
             >
-              {request.drafts.length === 0 ? "Generate content" : "Regenerate drafts"}
+              Start blank draft
             </button>
           </form>
         </div>
 
+        <div className="rounded-lg border border-[var(--card-border)] bg-[var(--blue-frost)] p-3 text-sm text-[var(--slate)]">
+          Noticed doesn&apos;t write content itself — draft this with
+          whichever AI you&apos;re already talking to (ChatGPT, Claude, ...)
+          using Noticed&apos;s MCP tools, and it&apos;ll show up here once
+          saved. Or start a blank draft above and write it directly.
+        </div>
+
         {request.drafts.length === 0 ? (
           <p className="text-sm text-[var(--slate)]">
-            No drafts yet — generate a blog post and channel-adapted social
-            posts from this request&apos;s brief. Requires the owner&apos;s
-            own Anthropic API key in <code>.env</code>.
+            No drafts yet.
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-3">
@@ -223,6 +242,11 @@ export default async function RequestDetailPage({
               );
               const destinationKeys = CHANNEL_DESTINATIONS[draft.channel] ?? [];
               const setDraftScheduleWithIds = setDraftSchedule.bind(
+                null,
+                request.id,
+                draft.id,
+              );
+              const editDraftBodyWithIds = editDraftBody.bind(
                 null,
                 request.id,
                 draft.id,
@@ -245,9 +269,28 @@ export default async function RequestDetailPage({
                       {draft.status === "APPROVED" ? "Approved" : "Draft"}
                     </span>
                   </div>
-                  <p className="whitespace-pre-wrap text-sm text-[var(--ink)]">
-                    {draft.body}
-                  </p>
+                  {draft.status === "APPROVED" ? (
+                    <p className="whitespace-pre-wrap text-sm text-[var(--ink)]">
+                      {draft.body}
+                    </p>
+                  ) : (
+                    <form action={editDraftBodyWithIds} className="flex flex-col gap-1">
+                      <textarea
+                        key={draft.body}
+                        name="body"
+                        defaultValue={draft.body}
+                        rows={6}
+                        placeholder="Paste content from a connected AI client, or write it here directly..."
+                        className="whitespace-pre-wrap rounded border border-[var(--card-border)] px-2 py-1.5 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        className="self-start rounded border border-[var(--card-border)] px-2 py-1 text-xs font-medium hover:bg-[var(--blue-frost)]"
+                      >
+                        Save text
+                      </button>
+                    </form>
+                  )}
 
                   <form
                     action={setDraftScheduleWithIds}

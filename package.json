@@ -10,7 +10,6 @@
     "mcp": "tsx src/mcp/server.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.115.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@prisma/adapter-better-sqlite3": "^7.9.1",
     "@prisma/client": "^7.9.1",

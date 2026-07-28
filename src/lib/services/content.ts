@@ -4,9 +4,8 @@
 // surfaces can never drift into duplicate logic.
 import { prisma } from "@/lib/prisma";
 import { resolveBrand } from "@/lib/brands";
-import { PROHIBITIVE_TYPES } from "@/lib/knowledge";
-import { generateContentPackage, checkCompliance } from "@/lib/content-generator";
-import type { ContentChannel, RequestType } from "@/generated/prisma/client";
+import { getOwnerName } from "@/lib/owner";
+import type { ContentChannel } from "@/generated/prisma/client";
 
 export async function searchContent(args: { query: string; brandKey?: string }) {
   const brand = args.brandKey ? await resolveBrand(args.brandKey) : null;
@@ -55,12 +54,20 @@ export async function searchContent(args: { query: string; brandKey?: string }) 
   };
 }
 
-export async function createDraftFromIdea(args: {
+// Saves content a connected AI client (ChatGPT, Claude, whichever the owner
+// is talking to) already wrote in the conversation. Deliberately does NOT
+// generate or rewrite anything — Noticed is the filing system, not a second
+// model. The brief goes in exactly as given; no Anthropic/OpenAI call, no
+// AI-based compliance re-check (that was a second model call and is exactly
+// the pattern this architecture removes).
+export async function createContentDraft(args: {
   brandKey: string;
-  requesterName: string;
   title: string;
+  channel: ContentChannel;
+  body: string;
+  draftTitle?: string;
   description?: string;
-  type?: RequestType;
+  scheduledFor?: string | null;
 }) {
   // Deliberately not optional and not defaulted, unlike other brandKey
   // params in this file. A conversational caller (MCP) has no equivalent
@@ -70,46 +77,28 @@ export async function createDraftFromIdea(args: {
   // instead of failing loudly.
   if (!args.brandKey) {
     throw new Error(
-      "brandKey is required to create a draft — creation must not silently fall back to a default brand.",
+      "brandKey is required to save a draft — creation must not silently fall back to a default brand.",
     );
   }
   const brand = await resolveBrand(args.brandKey);
-  const type = args.type ?? "CAMPAIGN";
 
-  // Brand-scoped on purpose — this is the whole point of the brand layer.
-  // InfraNet's voice/prohibited-claims must never bleed into a draft
-  // written for Alive Enough to Notice, or vice versa.
+  // Lineage only — which knowledge was APPROVED for this brand at save
+  // time, so the draft shows what the connected client had available via
+  // get_brand_context. This is bookkeeping, not a review: nothing here
+  // reads or grades the body, and nothing blocks the save.
   const approvedKnowledge = await prisma.knowledgeRecord.findMany({
     where: { brandId: brand.id, status: "APPROVED" },
   });
 
-  // Generate BEFORE writing anything to the database. A caller with no
-  // ANTHROPIC_API_KEY configured (or any other generation failure) must not
-  // leave a dangling MarketingRequest with zero drafts behind — found by
-  // actually testing this tool end to end, not by inspection.
-  const contentPackage = await generateContentPackage(
-    {
-      type,
-      title: args.title,
-      description: args.description ?? null,
-      department: null,
-    },
-    approvedKnowledge,
-  );
-
-  const prohibitedRecords = approvedKnowledge.filter((r) =>
-    PROHIBITIVE_TYPES.includes(r.type),
-  );
-  const compliance = await checkCompliance(contentPackage, prohibitedRecords);
-  const complianceFlag = compliance.clean ? null : JSON.stringify(compliance.violations);
-
   const request = await prisma.marketingRequest.create({
     data: {
       brandId: brand.id,
-      type,
+      type: "BLOG_OR_SOCIAL_CONTENT",
       title: args.title,
       description: args.description ?? null,
-      requesterName: args.requesterName,
+      // Identity comes from trusted local config, never from the MCP
+      // caller — see src/lib/owner.ts.
+      requesterName: getOwnerName(),
       status: "IN_PROGRESS",
       activities: {
         create: { type: "CREATED", message: "Captured from a conversation" },
@@ -117,40 +106,28 @@ export async function createDraftFromIdea(args: {
     },
   });
 
-  const drafts = await Promise.all(
-    (
-      [
-        ["BLOG", contentPackage.blog],
-        ["LINKEDIN", contentPackage.linkedin],
-        ["X", contentPackage.x],
-      ] as const
-    ).map(([channel, body]) =>
-      prisma.contentDraft.create({
-        data: {
-          requestId: request.id,
-          channel,
-          body,
-          complianceFlag,
-          complianceCheckedAt: new Date(),
-          knowledgeLinks: {
-            create: approvedKnowledge.map((k) => ({ knowledgeRecordId: k.id })),
-          },
-        },
-      }),
-    ),
-  );
+  const draft = await prisma.contentDraft.create({
+    data: {
+      requestId: request.id,
+      channel: args.channel,
+      title: args.draftTitle ?? null,
+      body: args.body,
+      scheduledFor: args.scheduledFor ? new Date(args.scheduledFor) : null,
+      knowledgeLinks: {
+        create: approvedKnowledge.map((k) => ({ knowledgeRecordId: k.id })),
+      },
+    },
+  });
 
   await prisma.activity.create({
     data: {
       marketingRequestId: request.id,
       type: "CONTENT_GENERATED",
-      message: compliance.clean
-        ? `Draft package generated (blog, LinkedIn, X) — compliance check clean`
-        : `Draft package generated — compliance check flagged ${compliance.violations.length} possible issue(s)`,
+      message: `${args.channel} draft saved from a connected AI client`,
     },
   });
 
-  return { request, drafts, complianceClean: compliance.clean };
+  return { request, draft };
 }
 
 export async function updateDraft(args: {

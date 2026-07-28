@@ -3,8 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { REQUEST_STATUS_LABELS } from "@/lib/requests";
-import { PROHIBITIVE_TYPES } from "@/lib/knowledge";
-import { generateContentPackage, checkCompliance } from "@/lib/content-generator";
 import { publish, type PublishableDestinationKey } from "@/lib/publishers";
 import type { RequestStatus } from "@/generated/prisma/client";
 
@@ -83,74 +81,43 @@ export async function addNote(requestId: string, formData: FormData) {
   revalidatePath(`/requests/${requestId}`);
 }
 
-// Regenerating replaces any un-approved drafts (a fresh take on the brief)
-// but leaves already-approved drafts alone — approval shouldn't get wiped
-// out by someone clicking "Generate" again.
-export async function generateContent(requestId: string) {
-  const request = await prisma.marketingRequest.findUniqueOrThrow({
-    where: { id: requestId },
+// Noticed no longer embeds a model provider — content gets written in
+// whichever AI client the owner is already talking to (ChatGPT, Claude,
+// etc.) and saved here via the create_content_draft/update_draft MCP
+// tools (see src/mcp/server.ts, src/lib/services/content.ts). This action
+// is the manual/local equivalent: start one empty draft per channel to
+// write into directly in the browser, or to paste finished text into.
+export async function createManualDraft(requestId: string, formData: FormData) {
+  const channel = String(formData.get("channel") ?? "") as "BLOG" | "LINKEDIN" | "X";
+  if (!channel) throw new Error("Channel is required");
+
+  await prisma.contentDraft.create({
+    data: { requestId, channel, body: "" },
   });
-  // Brand-scoped, not global — a request for one brand must never draw on
-  // another brand's voice/prohibited-claims. This is the actual point of
-  // the brand layer, not just a display label.
-  const approvedKnowledge = await prisma.knowledgeRecord.findMany({
-    where: { brandId: request.brandId, status: "APPROVED" },
-  });
-
-  const contentPackage = await generateContentPackage(
-    {
-      type: request.type,
-      title: request.title,
-      description: request.description,
-      department: request.department,
-    },
-    approvedKnowledge,
-  );
-
-  const prohibitedRecords = approvedKnowledge.filter((r) =>
-    PROHIBITIVE_TYPES.includes(r.type),
-  );
-  const compliance = await checkCompliance(contentPackage, prohibitedRecords);
-  const complianceFlag = compliance.clean
-    ? null
-    : JSON.stringify(compliance.violations);
-
-  await prisma.contentDraft.deleteMany({ where: { requestId, status: "DRAFT" } });
-
-  const created = await Promise.all(
-    (
-      [
-        ["BLOG", contentPackage.blog],
-        ["LINKEDIN", contentPackage.linkedin],
-        ["X", contentPackage.x],
-      ] as const
-    ).map(([channel, body]) =>
-      prisma.contentDraft.create({
-        data: {
-          requestId,
-          channel,
-          body,
-          complianceFlag,
-          complianceCheckedAt: new Date(),
-          knowledgeLinks: {
-            create: approvedKnowledge.map((k) => ({ knowledgeRecordId: k.id })),
-          },
-        },
-      }),
-    ),
-  );
 
   await prisma.activity.create({
     data: {
       marketingRequestId: requestId,
       type: "CONTENT_GENERATED",
-      message: compliance.clean
-        ? `Draft package generated (blog, LinkedIn, X) — compliance check clean, ${approvedKnowledge.length} knowledge record(s) in scope`
-        : `Draft package generated (blog, LinkedIn, X) — compliance check flagged ${compliance.violations.length} possible issue(s), review required before approval`,
+      message: `${channel} manual draft started`,
     },
   });
 
-  void created;
+  revalidatePath(`/requests/${requestId}`);
+}
+
+export async function editDraftBody(
+  requestId: string,
+  draftId: string,
+  formData: FormData,
+) {
+  const body = String(formData.get("body") ?? "");
+
+  await prisma.contentDraft.update({
+    where: { id: draftId },
+    data: { body },
+  });
+
   revalidatePath(`/requests/${requestId}`);
 }
 
