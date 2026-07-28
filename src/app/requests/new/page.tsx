@@ -12,10 +12,10 @@ export default function NewRequestPage() {
       <div>
         <h1 className="text-xl font-semibold">Submit a marketing request</h1>
         <p className="text-sm text-[var(--slate)]">
-          This is the link (or QR code) that goes out to anyone who needs
-          something from Marketing. It lands on the workbench, and Marketing
-          assigns who picks it up. One shared form for now — per-type
-          question sets aren&apos;t built yet.
+          This is the link (or QR code) you&apos;d share with anyone who needs
+          something from you — it lands on the workbench so nothing gets lost
+          in email or Slack. One shared form for now — per-type question sets
+          aren&apos;t built yet.
         </p>
       </div>
 
