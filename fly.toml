@@ -1,11 +1,7 @@
-# Noticed — Fly.io (SQLite on persistent volume)
-# App name: aetn-noticed → https://aetn-noticed.fly.dev
-# Secrets:
-#   fly secrets set -a aetn-noticed \
-#     DATABASE_URL='file:/data/noticed.db' \
-#     NOTICED_OWNER_PASSWORD='...' \
-#     NOTICED_SESSION_SECRET='...' \
-#     NOTICED_PUBLIC_ORIGIN='https://aetn-noticed.fly.dev'
+# fly.toml app configuration file generated for aetn-noticed on 2026-07-28T23:13:45Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
 app = 'aetn-noticed'
 primary_region = 'ord'
@@ -14,9 +10,14 @@ primary_region = 'ord'
   dockerfile = 'Dockerfile'
 
 [env]
-  PORT = '3004'
   HOSTNAME = '0.0.0.0'
   NODE_ENV = 'production'
+  PORT = '3004'
+
+[[mounts]]
+  source = 'noticed_data'
+  destination = '/data'
+  initial_size = '1gb'
 
 [http_service]
   internal_port = 3004
@@ -26,19 +27,16 @@ primary_region = 'ord'
   min_machines_running = 1
   processes = ['app']
 
-[[http_service.checks]]
-  interval = '30s'
-  timeout = '5s'
-  grace_period = '45s'
-  method = 'GET'
-  path = '/.well-known/oauth-authorization-server'
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '45s'
+    method = 'GET'
+    path = '/.well-known/oauth-authorization-server'
 
 [[vm]]
   size = 'shared-cpu-1x'
   memory = '512mb'
+  cpu_kind = 'shared'
   cpus = 1
-
-[mounts]
-  source = 'noticed_data'
-  destination = '/data'
-  initial_size = '1gb'
+  memory_mb = 512
