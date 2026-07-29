@@ -17,6 +17,9 @@ primary_region = 'ord'
   PORT = '3004'
   HOSTNAME = '0.0.0.0'
   NODE_ENV = 'production'
+  # Persistent volume, not the container's own filesystem — recordings
+  # would otherwise vanish on every redeploy.
+  RECORDINGS_DIR = '/data/recordings'
 
 [http_service]
   internal_port = 3004

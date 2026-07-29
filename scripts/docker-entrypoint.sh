@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-mkdir -p /data
+mkdir -p /data /data/recordings
 chown -R nextjs:nodejs /data 2>/dev/null || true
 export DATABASE_URL="${DATABASE_URL:-file:/data/noticed.db}"
 

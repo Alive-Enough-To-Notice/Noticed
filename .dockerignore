@@ -12,6 +12,7 @@
 # Dev artifacts
 dev.db
 dev.db-journal
+recordings/
 .next
 node_modules
 *.tsbuildinfo

@@ -11,7 +11,10 @@ import { prisma } from "@/lib/prisma";
 
 const execFileAsync = promisify(execFile);
 
-const RECORDINGS_DIR = path.join(process.cwd(), "recordings");
+// Overridable so production can point this at the persistent Fly volume
+// (/data/recordings — see fly.toml) instead of the container's ephemeral
+// filesystem, which gets wiped on every redeploy. Local dev is unaffected.
+const RECORDINGS_DIR = process.env.RECORDINGS_DIR || path.join(process.cwd(), "recordings");
 const WHISPER_CPP_ROOT = path.join(
   process.cwd(),
   "node_modules/nodejs-whisper/cpp/whisper.cpp",
