@@ -13,9 +13,19 @@ function sessionSecret(): string {
   );
 }
 
-/** Gate is active when an owner password is configured (hosted / secured local). */
+/**
+ * Hosted instances must always be gated. Local development may opt out by
+ * leaving the password unset, but production never fails open.
+ */
 export function ownerGateEnabled(): boolean {
-  return Boolean(process.env.NOTICED_OWNER_PASSWORD?.trim());
+  return process.env.NODE_ENV === "production" || Boolean(process.env.NOTICED_OWNER_PASSWORD?.trim());
+}
+
+export function ownerAuthConfigured(): boolean {
+  return Boolean(
+    process.env.NOTICED_OWNER_PASSWORD?.trim() &&
+      process.env.NOTICED_SESSION_SECRET?.trim(),
+  );
 }
 
 export function verifyOwnerPassword(password: string): boolean {

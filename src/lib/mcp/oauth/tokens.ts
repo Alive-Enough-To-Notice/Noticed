@@ -26,7 +26,6 @@ export async function registerPublicMcpClient(input: {
   }
   for (const uri of redirectUris) {
     try {
-      // eslint-disable-next-line no-new
       new URL(uri);
     } catch {
       throw new Error(`Invalid redirect_uri: ${uri}`);

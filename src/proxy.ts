@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   OWNER_SESSION_COOKIE,
+  ownerAuthConfigured,
   ownerGateEnabled,
   verifyOwnerSessionToken,
 } from "@/lib/owner-auth";
@@ -12,6 +13,13 @@ import {
 export function proxy(request: NextRequest) {
   if (!ownerGateEnabled()) {
     return NextResponse.next();
+  }
+
+  if (process.env.NODE_ENV === "production" && !ownerAuthConfigured()) {
+    return new NextResponse(
+      "Noticed is locked because owner authentication is not fully configured.",
+      { status: 503 },
+    );
   }
 
   const { pathname } = request.nextUrl;

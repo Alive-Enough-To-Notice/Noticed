@@ -66,23 +66,23 @@ enum RequestStatus {
 // change, not the individual channel post. Everything else (creation,
 // approval, publishing, verification) hangs off this spine.
 model MarketingRequest {
-  id            String           @id @default(cuid())
+  id            String          @id @default(cuid())
   brandId       String
-  brand         Brand            @relation(fields: [brandId], references: [id])
+  brand         Brand           @relation(fields: [brandId], references: [id])
   type          RequestType
   title         String
   description   String?
   requesterName String
   department    String?
-  priority      RequestPriority  @default(NORMAL)
-  status        RequestStatus    @default(NEW)
+  priority      RequestPriority @default(NORMAL)
+  status        RequestStatus   @default(NEW)
   owner         String?
   missingInfo   String?
   dueDate       DateTime?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
-  activities Activity[]
+  activities      Activity[]
   // MarketingRequest no longer parents ContentDraft directly — it reaches
   // content through a ContentProject (see MarketingRequestContentProject),
   // the same door Creator Studio's Idea model uses. A request represents a
@@ -148,6 +148,29 @@ model ContentProject {
   marketingRequests MarketingRequestContentProject[]
   ideas             IdeaContentProject[]
   recordings        Recording[]
+  sources           ContentSource[]
+}
+
+enum ContentSourceType {
+  WEB_PAGE
+  DOCUMENT
+  TRANSCRIPT
+  NOTE
+}
+
+model ContentSource {
+  id               String            @id @default(cuid())
+  contentProjectId String
+  contentProject   ContentProject    @relation(fields: [contentProjectId], references: [id], onDelete: Restrict)
+  type             ContentSourceType
+  title            String
+  sourceUrl        String?
+  body             String
+  checksum         String
+  locked           Boolean           @default(true)
+  capturedAt       DateTime          @default(now())
+
+  @@unique([contentProjectId, checksum])
 }
 
 // A raw audio capture plus its local transcription. The file itself lives
@@ -163,13 +186,13 @@ enum RecordingStatus {
 }
 
 model Recording {
-  id               String          @id @default(cuid())
-  contentProjectId String
-  contentProject   ContentProject  @relation(fields: [contentProjectId], references: [id], onDelete: Restrict)
-  filePath         String
-  mimeType         String
-  durationSeconds  Float?
-  status           RecordingStatus @default(UPLOADED)
+  id                 String          @id @default(cuid())
+  contentProjectId   String
+  contentProject     ContentProject  @relation(fields: [contentProjectId], references: [id], onDelete: Restrict)
+  filePath           String
+  mimeType           String
+  durationSeconds    Float?
+  status             RecordingStatus @default(UPLOADED)
   // Plain-text transcript for quick display/search, plus the segment-level
   // (not word-level — see docs/media-studio-feasibility.md point 8 for why
   // that distinction was deliberate) timestamps as JSON.
@@ -250,16 +273,16 @@ model ContentDraft {
   // drafts cannot be deleted; drafts must be reassigned or removed first.
   contentProjectId String
   contentProject   ContentProject @relation(fields: [contentProjectId], references: [id], onDelete: Restrict)
-  channel    ContentChannel
+  channel          ContentChannel
   // Falls back to the parent project's title when null (the normal
   // one-project-to-few-drafts flow). Bulk-imported drafts set their own,
   // since many drafts share one container project and need to be
   // individually identifiable on the calendar.
-  title      String?
-  body       String
-  status     DraftStatus      @default(DRAFT)
-  approvedBy String?
-  approvedAt DateTime?
+  title            String?
+  body             String
+  status           DraftStatus    @default(DRAFT)
+  approvedBy       String?
+  approvedAt       DateTime?
 
   // When this post is meant to go out — the calendar's whole reason for
   // existing. Null means "not scheduled yet."
@@ -273,11 +296,56 @@ model ContentDraft {
   complianceFlag      String?
   complianceCheckedAt DateTime?
 
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   publishAttempts PublishAttempt[]
   knowledgeLinks  ContentDraftKnowledgeRecord[]
+  versions        DraftVersion[]
+  approvals       DraftApproval[]
+  scheduleEntries ScheduleEntry[]
+}
+
+model DraftVersion {
+  id        String       @id @default(cuid())
+  draftId   String
+  draft     ContentDraft @relation(fields: [draftId], references: [id], onDelete: Restrict)
+  title     String?
+  body      String
+  reason    String
+  createdAt DateTime     @default(now())
+}
+
+model DraftApproval {
+  id          String       @id @default(cuid())
+  draftId     String
+  draft       ContentDraft @relation(fields: [draftId], references: [id], onDelete: Restrict)
+  approvedBy  String
+  bodyHash    String
+  destination String
+  notes       String?
+  createdAt   DateTime     @default(now())
+}
+
+enum ScheduleEntryStatus {
+  PLANNED
+  READY_FOR_APPROVAL
+  PUBLISHED
+  CANCELED
+}
+
+model ScheduleEntry {
+  id           String              @id @default(cuid())
+  draftId      String
+  draft        ContentDraft        @relation(fields: [draftId], references: [id], onDelete: Restrict)
+  destination  String
+  scheduledFor DateTime
+  status       ScheduleEntryStatus @default(PLANNED)
+  publishedUrl String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@unique([draftId, destination, scheduledFor])
 }
 
 // The "verification and operational memory" the product spec calls for —
@@ -287,7 +355,7 @@ model ContentDraft {
 model PublishAttempt {
   id          String       @id @default(cuid())
   draftId     String
-  draft       ContentDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft       ContentDraft @relation(fields: [draftId], references: [id], onDelete: Restrict)
   destination String
   success     Boolean
   url         String?
@@ -372,12 +440,12 @@ model ContentDraftKnowledgeRecord {
 // No multi-user accounts: authorize with NOTICED_OWNER_PASSWORD; subject is always "owner".
 
 model McpOAuthClient {
-  clientId                 String   @id @map("client_id")
-  clientSecretHash         String?  @map("client_secret_hash")
-  clientName               String?  @map("client_name")
-  redirectUris             String   @map("redirect_uris") // JSON string[]
-  tokenEndpointAuthMethod  String   @default("none") @map("token_endpoint_auth_method")
-  createdAt                DateTime @default(now()) @map("created_at")
+  clientId                String   @id @map("client_id")
+  clientSecretHash        String?  @map("client_secret_hash")
+  clientName              String?  @map("client_name")
+  redirectUris            String   @map("redirect_uris") // JSON string[]
+  tokenEndpointAuthMethod String   @default("none") @map("token_endpoint_auth_method")
+  createdAt               DateTime @default(now()) @map("created_at")
 
   authorizationCodes McpOAuthAuthorizationCode[]
   accessTokens       McpOAuthAccessToken[]
@@ -385,44 +453,44 @@ model McpOAuthClient {
 }
 
 model McpOAuthAuthorizationCode {
-  id                  String    @id @default(cuid())
-  codeHash            String    @unique @map("code_hash")
-  clientId            String    @map("client_id")
+  id                  String         @id @default(cuid())
+  codeHash            String         @unique @map("code_hash")
+  clientId            String         @map("client_id")
   client              McpOAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
-  userId              String    @map("user_id")
-  redirectUri         String    @map("redirect_uri")
-  codeChallenge       String    @map("code_challenge")
-  codeChallengeMethod String    @default("S256") @map("code_challenge_method")
-  scopes              String    @default("[]") // JSON string[]
-  expiresAt           DateTime  @map("expires_at")
-  usedAt              DateTime? @map("used_at")
-  createdAt           DateTime  @default(now()) @map("created_at")
+  userId              String         @map("user_id")
+  redirectUri         String         @map("redirect_uri")
+  codeChallenge       String         @map("code_challenge")
+  codeChallengeMethod String         @default("S256") @map("code_challenge_method")
+  scopes              String         @default("[]") // JSON string[]
+  expiresAt           DateTime       @map("expires_at")
+  usedAt              DateTime?      @map("used_at")
+  createdAt           DateTime       @default(now()) @map("created_at")
 }
 
 model McpOAuthAccessToken {
-  id          String    @id @default(cuid())
-  tokenHash   String    @unique @map("token_hash")
-  clientId    String    @map("client_id")
-  client      McpOAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
-  userId      String    @map("user_id")
-  scopes      String    @default("[]") // JSON string[]
-  expiresAt   DateTime  @map("expires_at")
-  revokedAt   DateTime? @map("revoked_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id        String         @id @default(cuid())
+  tokenHash String         @unique @map("token_hash")
+  clientId  String         @map("client_id")
+  client    McpOAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  userId    String         @map("user_id")
+  scopes    String         @default("[]") // JSON string[]
+  expiresAt DateTime       @map("expires_at")
+  revokedAt DateTime?      @map("revoked_at")
+  createdAt DateTime       @default(now()) @map("created_at")
 
   refreshTokens McpOAuthRefreshToken[]
 }
 
 model McpOAuthRefreshToken {
-  id            String    @id @default(cuid())
-  tokenHash     String    @unique @map("token_hash")
-  accessTokenId String?   @map("access_token_id")
+  id            String               @id @default(cuid())
+  tokenHash     String               @unique @map("token_hash")
+  accessTokenId String?              @map("access_token_id")
   accessToken   McpOAuthAccessToken? @relation(fields: [accessTokenId], references: [id], onDelete: SetNull)
-  clientId      String    @map("client_id")
-  client        McpOAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
-  userId        String    @map("user_id")
-  scopes        String    @default("[]") // JSON string[]
-  expiresAt     DateTime  @map("expires_at")
-  revokedAt     DateTime? @map("revoked_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
+  clientId      String               @map("client_id")
+  client        McpOAuthClient       @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  userId        String               @map("user_id")
+  scopes        String               @default("[]") // JSON string[]
+  expiresAt     DateTime             @map("expires_at")
+  revokedAt     DateTime?            @map("revoked_at")
+  createdAt     DateTime             @default(now()) @map("created_at")
 }

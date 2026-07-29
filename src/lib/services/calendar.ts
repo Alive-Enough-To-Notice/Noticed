@@ -8,22 +8,25 @@ export async function getCalendarEntries(args: {
 }) {
   const brand = args.brandKey ? await resolveBrand(args.brandKey) : null;
 
-  const drafts = await prisma.contentDraft.findMany({
+  const entries = await prisma.scheduleEntry.findMany({
     where: {
       scheduledFor: { gte: new Date(args.from), lt: new Date(args.to) },
-      ...(brand ? { contentProject: { brandId: brand.id } } : {}),
+      ...(brand ? { draft: { contentProject: { brandId: brand.id } } } : {}),
     },
-    include: { contentProject: { include: { brand: true } } },
+    include: { draft: { include: { contentProject: { include: { brand: true } } } } },
     orderBy: { scheduledFor: "asc" },
   });
 
-  return drafts.map((d) => ({
-    id: d.id,
-    contentProjectId: d.contentProjectId,
-    title: d.title ?? d.contentProject.title,
-    channel: d.channel,
-    status: d.status,
-    scheduledFor: d.scheduledFor?.toISOString() ?? null,
-    brand: d.contentProject.brand.name,
+  return entries.map((entry) => ({
+    id: entry.id,
+    draftId: entry.draftId,
+    contentProjectId: entry.draft.contentProjectId,
+    title: entry.draft.title ?? entry.draft.contentProject.title,
+    channel: entry.draft.channel,
+    destination: entry.destination,
+    status: entry.status,
+    scheduledFor: entry.scheduledFor.toISOString(),
+    publishedUrl: entry.publishedUrl,
+    brand: entry.draft.contentProject.brand.name,
   }));
 }

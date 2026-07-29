@@ -11,7 +11,6 @@ import {
   editDraftBodyAction,
   setDraftScheduleAction,
   approveDraftAction,
-  publishDraftAction,
 } from "../../actions";
 
 const DESTINATION_LABELS = Object.fromEntries(DESTINATIONS.map((d) => [d.key, d.label]));
@@ -29,11 +28,15 @@ export default async function ProjectDetailPage({
       brand: true,
       ideas: { include: { idea: true } },
       recordings: { orderBy: { createdAt: "desc" } },
+      sources: { orderBy: { capturedAt: "asc" } },
       drafts: {
         orderBy: { createdAt: "asc" },
         include: {
           publishAttempts: { orderBy: { createdAt: "desc" } },
           knowledgeLinks: { include: { knowledgeRecord: true } },
+          versions: { orderBy: { createdAt: "desc" } },
+          approvals: { orderBy: { createdAt: "desc" } },
+          scheduleEntries: { orderBy: { scheduledFor: "asc" } },
         },
       },
     },
@@ -78,6 +81,22 @@ export default async function ProjectDetailPage({
               </p>
             ))}
           </div>
+        </section>
+      )}
+
+      {project.sources.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--slate)]">Locked sources</h2>
+          {project.sources.map((source) => (
+            <div key={source.id} className="rounded-lg border border-[var(--card-border)] bg-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-semibold">{source.title}</h3>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${NEUTRAL_BADGE_CLASS}`}>{source.locked ? "Locked" : "Editable"}</span>
+              </div>
+              {source.sourceUrl && <a href={source.sourceUrl} className="text-xs underline">View original source</a>}
+              <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm text-[var(--slate)]">{source.body}</p>
+            </div>
+          ))}
         </section>
       )}
 
@@ -183,7 +202,6 @@ export default async function ProjectDetailPage({
               const editBodyWithIds = editDraftBodyAction.bind(null, project.id, draft.id);
               const scheduleWithIds = setDraftScheduleAction.bind(null, project.id, draft.id);
               const approveWithIds = approveDraftAction.bind(null, project.id, draft.id);
-              const publishWithIds = publishDraftAction.bind(null, project.id, draft.id);
               const destinationKeys = CHANNEL_DESTINATIONS[draft.channel] ?? [];
 
               return (
@@ -233,6 +251,12 @@ export default async function ProjectDetailPage({
                       defaultValue={draft.scheduledFor?.toISOString().slice(0, 10) ?? ""}
                       className="rounded border border-[var(--card-border)] px-2 py-1 text-xs"
                     />
+                    <select name="destination" required className="rounded border border-[var(--card-border)] px-2 py-1 text-xs">
+                      <option value="WEBFLOW_BLOG">Webflow Blog</option>
+                      <option value="LINKEDIN_ARTICLE">LinkedIn Article</option>
+                      <option value="BUFFER_HANDOFF">Buffer handoff</option>
+                      <option value="NARRAREACH_HANDOFF">Narrareach handoff</option>
+                    </select>
                     <button
                       type="submit"
                       className="rounded bg-[var(--accent)] px-2 py-1 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
@@ -282,6 +306,11 @@ export default async function ProjectDetailPage({
                         required
                         className="rounded border border-[var(--card-border)] px-2 py-1.5 text-sm"
                       />
+                      <select name="destination" required className="rounded border border-[var(--card-border)] px-2 py-1.5 text-sm">
+                        <option value="INTERNAL_PREVIEW">Internal preview only</option>
+                        <option value="WEBFLOW_BLOG">Webflow Blog</option>
+                        <option value="LINKEDIN_ARTICLE">LinkedIn Article</option>
+                      </select>
                       {draft.complianceFlag && (
                         <input
                           name="overrideReason"
@@ -300,25 +329,17 @@ export default async function ProjectDetailPage({
                   )}
 
                   {draft.status === "APPROVED" && destinationKeys.length > 0 && (
-                    <form action={publishWithIds} className="flex gap-2 border-t border-[var(--card-border)] pt-2">
-                      <select
-                        name="destination"
-                        required
-                        className="flex-1 rounded border border-[var(--card-border)] px-2 py-1.5 text-sm"
-                      >
-                        {destinationKeys.map((key) => (
-                          <option key={key} value={key}>
-                            {DESTINATION_LABELS[key] ?? key}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="submit"
-                        className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
-                      >
-                        Publish
-                      </button>
-                    </form>
+                    <div className="rounded border border-[var(--attention)] bg-[var(--attention-soft)] p-2 text-xs text-[var(--attention)]">
+                      Live publishing is locked. This approved snapshot is ready for destination preview and explicit owner approval.
+                    </div>
+                  )}
+
+                  {draft.scheduleEntries.length > 0 && (
+                    <div className="border-t border-[var(--card-border)] pt-2 text-xs text-[var(--slate)]">
+                      {draft.scheduleEntries.map((entry) => (
+                        <p key={entry.id}>{entry.destination} · {entry.scheduledFor.toLocaleString()} · {entry.status}</p>
+                      ))}
+                    </div>
                   )}
 
                   {draft.publishAttempts.length > 0 && (

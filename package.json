@@ -8,7 +8,8 @@
     "start": "next start -p 3004",
     "lint": "eslint",
     "mcp": "tsx src/mcp/server.ts",
-    "smoke:mcp": "tsx scripts/smoke-mcp-full.ts"
+    "smoke:mcp": "tsx scripts/smoke-mcp-full.ts",
+    "seed:machine-90": "tsx scripts/seed-machine-90.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

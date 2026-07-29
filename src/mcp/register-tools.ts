@@ -29,6 +29,15 @@ const requiredBrandKeySchema = z
 
 const contentChannelSchema = z.enum(["BLOG", "LINKEDIN", "X"]);
 
+function requireScope(
+  extra: { authInfo?: { scopes?: string[] } },
+  required: "mcp:content:read" | "mcp:content:write",
+) {
+  if (!extra.authInfo?.scopes?.includes(required)) {
+    throw new Error(`Missing required OAuth scope: ${required}`);
+  }
+}
+
 const createContentDraftSchema = z.discriminatedUnion("target", [
   z.object({
     target: z
@@ -105,7 +114,8 @@ export function registerNoticedTools(server: McpServer) {
         brandKey: brandKeySchema,
       },
     },
-    async ({ query, brandKey }) => {
+    async ({ query, brandKey }, extra) => {
+      requireScope(extra, "mcp:content:read");
       const result = await searchContent({ query, brandKey });
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },
@@ -121,7 +131,8 @@ export function registerNoticedTools(server: McpServer) {
         brandKey: brandKeySchema,
       },
     },
-    async ({ brandKey }) => {
+    async ({ brandKey }, extra) => {
+      requireScope(extra, "mcp:content:read");
       const result = await getBrandContext({ brandKey });
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },
@@ -135,7 +146,8 @@ export function registerNoticedTools(server: McpServer) {
         'Save content YOU (the connected AI client) already wrote in this conversation — using your own model, not Noticed\'s. Saves the supplied title and body exactly as given; does not generate, rewrite, or call any model. Every draft belongs to a ContentProject, never a MarketingRequest — this never fabricates a fake marketing-operations record. Use target: "new_project" to start something new (also creates the originating Idea), or target: "existing_project" to add to a project you already started. brandKey is always required and is verified against the actual project brand for existing_project — never guess or default it.',
       inputSchema: createContentDraftSchema,
     },
-    async (args) => {
+    async (args, extra) => {
+      requireScope(extra, "mcp:content:write");
       const result = await createContentDraft(args);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },
@@ -158,7 +170,8 @@ export function registerNoticedTools(server: McpServer) {
           .describe("ISO date to schedule for, or null to unschedule."),
       },
     },
-    async ({ draftId, body, title, scheduledFor }) => {
+    async ({ draftId, body, title, scheduledFor }, extra) => {
+      requireScope(extra, "mcp:content:write");
       const result = await updateDraft({ draftId, body, title, scheduledFor });
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },
@@ -176,7 +189,8 @@ export function registerNoticedTools(server: McpServer) {
         brandKey: brandKeySchema,
       },
     },
-    async ({ from, to, brandKey }) => {
+    async ({ from, to, brandKey }, extra) => {
+      requireScope(extra, "mcp:content:read");
       const result = await getCalendarEntries({ from, to, brandKey });
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     },

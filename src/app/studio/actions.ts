@@ -9,9 +9,9 @@ import {
   createProject,
   createBlankDraftInProject,
 } from "@/lib/services/content-projects";
-import { updateDraft } from "@/lib/services/content";
 import { publish, type PublishableDestinationKey } from "@/lib/publishers";
 import type { ContentChannel, IdeaStatus } from "@/generated/prisma/client";
+import { createHash } from "node:crypto";
 
 export async function createIdeaAction(formData: FormData) {
   const brandKey = String(formData.get("brandKey") ?? "").trim();
@@ -77,7 +77,26 @@ export async function editDraftBodyAction(
   formData: FormData,
 ) {
   const body = String(formData.get("body") ?? "");
-  await updateDraft({ draftId, body });
+  const existing = await prisma.contentDraft.findUniqueOrThrow({ where: { id: draftId } });
+  await prisma.$transaction(async (tx) => {
+    await tx.draftVersion.create({
+      data: {
+        draftId,
+        title: existing.title,
+        body: existing.body,
+        reason: "Snapshot before manual edit",
+      },
+    });
+    await tx.contentDraft.update({
+      where: { id: draftId },
+      data: {
+        body,
+        status: "DRAFT",
+        approvedBy: null,
+        approvedAt: null,
+      },
+    });
+  });
   revalidatePath(`/studio/projects/${projectId}`);
 }
 
@@ -87,7 +106,20 @@ export async function setDraftScheduleAction(
   formData: FormData,
 ) {
   const scheduledFor = String(formData.get("scheduledFor") ?? "").trim();
-  await updateDraft({ draftId, scheduledFor: scheduledFor || null });
+  const destination = String(formData.get("destination") ?? "").trim();
+  if (!destination) throw new Error("Destination is required");
+  if (!scheduledFor) throw new Error("Date is required");
+  await prisma.scheduleEntry.upsert({
+    where: {
+      draftId_destination_scheduledFor: {
+        draftId,
+        destination,
+        scheduledFor: new Date(scheduledFor),
+      },
+    },
+    create: { draftId, destination, scheduledFor: new Date(scheduledFor) },
+    update: { status: "PLANNED" },
+  });
   revalidatePath(`/studio/projects/${projectId}`);
   revalidatePath("/calendar");
 }
@@ -113,6 +145,15 @@ export async function approveDraftAction(
     where: { id: draftId },
     data: { status: "APPROVED", approvedBy, approvedAt: new Date() },
   });
+  await prisma.draftApproval.create({
+    data: {
+      draftId,
+      approvedBy,
+      destination: String(formData.get("destination") ?? "INTERNAL_PREVIEW"),
+      bodyHash: createHash("sha256").update(existing.body).digest("hex"),
+      notes: overrideReason || null,
+    },
+  });
 
   revalidatePath(`/studio/projects/${projectId}`);
 }
@@ -124,6 +165,11 @@ export async function publishDraftAction(
   draftId: string,
   formData: FormData,
 ) {
+  if (process.env.NOTICED_LIVE_PUBLISHING_ENABLED !== "true") {
+    throw new Error(
+      "Live publishing is locked. Prepare the destination preview and obtain explicit owner approval before enabling a live publication.",
+    );
+  }
   const destination = String(formData.get("destination") ?? "") as PublishableDestinationKey;
   if (!destination) throw new Error("Destination is required");
 

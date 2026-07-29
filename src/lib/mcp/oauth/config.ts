@@ -28,11 +28,13 @@ export const MCP_SCOPES_SUPPORTED = [
 export const MCP_DEFAULT_SCOPES = [...MCP_SCOPES_SUPPORTED] as string[];
 
 export function expandMcpScopes(requested?: string[] | null): string[] {
-  const out = new Set<string>(
-    requested && requested.length > 0 ? requested : MCP_DEFAULT_SCOPES,
-  );
-  for (const s of MCP_SCOPES_SUPPORTED) out.add(s);
-  return [...out];
+  const desired = requested && requested.length > 0 ? requested : MCP_DEFAULT_SCOPES;
+  const supported = new Set<string>(MCP_SCOPES_SUPPORTED);
+  const invalid = desired.filter((scope) => !supported.has(scope));
+  if (invalid.length > 0) {
+    throw new Error(`Unsupported MCP scope: ${invalid.join(", ")}`);
+  }
+  return [...new Set(desired)];
 }
 
 export function parseJsonStringArray(raw: string | null | undefined): string[] {

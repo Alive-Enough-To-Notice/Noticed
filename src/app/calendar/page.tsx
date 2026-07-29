@@ -7,7 +7,7 @@ import {
   WEEKDAY_LABELS,
 } from "@/lib/calendar";
 import { CONTENT_CHANNEL_LABELS } from "@/lib/requests";
-import { draftStatusBadgeClass } from "@/lib/badges";
+import { NEUTRAL_BADGE_CLASS } from "@/lib/badges";
 
 export default async function CalendarPage({
   searchParams,
@@ -29,37 +29,37 @@ export default async function CalendarPage({
   // only case that page can render), also pull whichever MarketingRequest
   // (if any) that project happens to be linked to — a Creator Studio draft
   // with no linked request just won't have a click-through target yet.
-  const draftInclude = {
-    contentProject: {
+  const entryInclude = {
+    draft: { include: { contentProject: {
       include: {
         marketingRequests: { take: 1 as const, select: { marketingRequestId: true } },
       },
-    },
+    } } },
   };
 
   const [scheduled, unscheduled] = await Promise.all([
-    prisma.contentDraft.findMany({
+    prisma.scheduleEntry.findMany({
       where: { scheduledFor: { gte: gridStart, lt: gridEnd } },
-      include: draftInclude,
+      include: entryInclude,
       orderBy: { scheduledFor: "asc" },
     }),
     prisma.contentDraft.findMany({
-      where: { scheduledFor: null, status: { not: "APPROVED" } },
-      include: draftInclude,
+      where: { scheduleEntries: { none: {} }, status: { not: "APPROVED" } },
+      include: { contentProject: { include: { marketingRequests: { take: 1 } } } },
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
   ]);
 
-  function linkedRequestId(draft: (typeof scheduled)[number]) {
-    return draft.contentProject.marketingRequests[0]?.marketingRequestId ?? null;
+  function linkedRequestId(entry: (typeof scheduled)[number]) {
+    return entry.draft.contentProject.marketingRequests[0]?.marketingRequestId ?? null;
   }
 
   const byDay = new Map<string, typeof scheduled>();
-  for (const draft of scheduled) {
-    const key = dateKey(draft.scheduledFor as Date);
+  for (const entry of scheduled) {
+    const key = dateKey(entry.scheduledFor);
     const list = byDay.get(key) ?? [];
-    list.push(draft);
+    list.push(entry);
     byDay.set(key, list);
   }
 
@@ -129,16 +129,16 @@ export default async function CalendarPage({
               </span>
               <div className="mt-1 flex flex-col gap-1">
                 {items.slice(0, 3).map((item) => {
-                  const title = item.title ?? item.contentProject.title;
+                  const title = item.draft.title ?? item.draft.contentProject.title;
                   const requestId = linkedRequestId(item);
-                  const className = `truncate rounded px-1 py-0.5 text-[10px] font-medium ${draftStatusBadgeClass(item.status)}`;
+                  const className = `truncate rounded px-1 py-0.5 text-[10px] font-medium ${NEUTRAL_BADGE_CLASS}`;
                   return requestId ? (
                     <Link key={item.id} href={`/requests/${requestId}`} className={className} title={title}>
-                      {CONTENT_CHANNEL_LABELS[item.channel]}: {title}
+                      {item.destination}: {title}
                     </Link>
                   ) : (
                     <span key={item.id} className={className} title={title}>
-                      {CONTENT_CHANNEL_LABELS[item.channel]}: {title}
+                      {item.destination}: {title}
                     </span>
                   );
                 })}
@@ -161,7 +161,7 @@ export default async function CalendarPage({
           <div className="flex flex-col gap-2">
             {unscheduled.map((draft) => {
               const title = draft.title ?? draft.contentProject.title;
-              const requestId = linkedRequestId(draft);
+              const requestId = draft.contentProject.marketingRequests[0]?.marketingRequestId ?? null;
               const className =
                 "flex items-center justify-between rounded-lg border border-[var(--attention)] bg-[var(--attention-soft)] px-3 py-2 text-sm";
               const content = (
