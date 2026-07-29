@@ -185,12 +185,36 @@ enum RecordingStatus {
   FAILED
 }
 
+enum MediaKind {
+  AUDIO
+  VIDEO
+}
+
+enum EditDecisionStatus {
+  PROPOSED
+  APPLIED
+  REJECTED
+}
+
+enum EditDecisionSource {
+  MANUAL
+  MARKER
+}
+
+enum MediaExportStatus {
+  RENDERING
+  READY
+  FAILED
+}
+
 model Recording {
   id                 String          @id @default(cuid())
   contentProjectId   String
   contentProject     ContentProject  @relation(fields: [contentProjectId], references: [id], onDelete: Restrict)
   filePath           String
   mimeType           String
+  originalFileName   String?
+  mediaKind          MediaKind       @default(AUDIO)
   durationSeconds    Float?
   status             RecordingStatus @default(UPLOADED)
   // Plain-text transcript for quick display/search, plus the segment-level
@@ -198,9 +222,41 @@ model Recording {
   // that distinction was deliberate) timestamps as JSON.
   transcript         String?
   transcriptSegments String?
+  transcriptWords    String?
   transcriptError    String?
+  markerPhrase       String          @default("scratch scratch meow")
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
+
+  editDecisions EditDecision[]
+  exports       MediaExport[]
+}
+
+model EditDecision {
+  id           String             @id @default(cuid())
+  recordingId  String
+  recording    Recording          @relation(fields: [recordingId], references: [id], onDelete: Restrict)
+  startSeconds Float
+  endSeconds   Float
+  label        String
+  source       EditDecisionSource
+  status       EditDecisionStatus @default(PROPOSED)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model MediaExport {
+  id              String            @id @default(cuid())
+  recordingId     String
+  recording       Recording         @relation(fields: [recordingId], references: [id], onDelete: Restrict)
+  status          MediaExportStatus @default(RENDERING)
+  filePath        String?
+  captionsPath    String?
+  mimeType        String?
+  durationSeconds Float?
+  error           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 }
 
 // Personal, format-less capture — "there's something here," before it's

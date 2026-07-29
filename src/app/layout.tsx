@@ -25,6 +25,7 @@ export default function RootLayout({
                 width={40}
                 height={32}
                 className="h-8 w-auto"
+                style={{ width: "auto" }}
                 priority
               />
               <span
@@ -34,7 +35,10 @@ export default function RootLayout({
                 Noticed
               </span>
             </Link>
-            <nav className="flex gap-4 text-sm text-[var(--slate)]">
+            <nav className="flex gap-4 overflow-x-auto text-sm text-[var(--slate)]" aria-label="Main navigation">
+              <Link href="/media" className="whitespace-nowrap font-semibold hover:text-[var(--accent)]">
+                Audio &amp; Video
+              </Link>
               <Link href="/studio" className="hover:text-[var(--accent)]">
                 Studio
               </Link>
@@ -43,9 +47,6 @@ export default function RootLayout({
               </Link>
               <Link href="/calendar" className="hover:text-[var(--accent)]">
                 Calendar
-              </Link>
-              <Link href="/podcast" className="hover:text-[var(--accent)]">
-                Podcast
               </Link>
               <Link href="/requests/new" className="hover:text-[var(--accent)]">
                 New request
