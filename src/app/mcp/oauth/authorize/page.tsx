@@ -7,8 +7,10 @@ import {
 } from "@/lib/mcp/oauth/config";
 import { createAuthorizationCode } from "@/lib/mcp/oauth/tokens";
 import {
+  OWNER_AUTH_LOCKED_MESSAGE,
   OWNER_SESSION_COOKIE,
   createOwnerSessionToken,
+  ownerAuthLocked,
   ownerGateEnabled,
   verifyOwnerPassword,
   verifyOwnerSessionToken,
@@ -50,9 +52,11 @@ export default async function McpOAuthAuthorizePage({
   const loginError = first(sp.login_error);
 
   const jar = await cookies();
+  const locked = ownerAuthLocked();
   const sessionOk =
-    !ownerGateEnabled() ||
-    verifyOwnerSessionToken(jar.get(OWNER_SESSION_COOKIE)?.value);
+    !locked &&
+    (!ownerGateEnabled() ||
+      verifyOwnerSessionToken(jar.get(OWNER_SESSION_COOKIE)?.value));
 
   const client = clientId
     ? await prisma.mcpOAuthClient.findUnique({ where: { clientId } })
@@ -69,6 +73,11 @@ export default async function McpOAuthAuthorizePage({
 
   async function loginAction(formData: FormData) {
     "use server";
+    if (ownerAuthLocked()) {
+      const q = oauthQuery(sp);
+      q.set("login_error", OWNER_AUTH_LOCKED_MESSAGE);
+      redirect(`/mcp/oauth/authorize?${q.toString()}`);
+    }
     const password = String(formData.get("password") ?? "");
     if (!verifyOwnerPassword(password)) {
       const q = oauthQuery(sp);
@@ -88,6 +97,11 @@ export default async function McpOAuthAuthorizePage({
 
   async function approveAction() {
     "use server";
+    if (ownerAuthLocked()) {
+      const q = oauthQuery(sp);
+      q.set("error", OWNER_AUTH_LOCKED_MESSAGE);
+      redirect(`/mcp/oauth/authorize?${q.toString()}`);
+    }
     const cookieStore = await cookies();
     if (
       ownerGateEnabled() &&
@@ -132,7 +146,11 @@ export default async function McpOAuthAuthorizePage({
         </p>
       ) : null}
 
-      {!client ? (
+      {locked ? (
+        <p className="mt-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          {OWNER_AUTH_LOCKED_MESSAGE}
+        </p>
+      ) : !client ? (
         <p className="mt-6 text-sm text-zinc-700">
           Unknown or missing <code className="text-xs">client_id</code>. Start the
           connection from ChatGPT so it can register itself.

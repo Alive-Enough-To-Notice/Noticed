@@ -1,8 +1,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
+  OWNER_AUTH_LOCKED_MESSAGE,
   OWNER_SESSION_COOKIE,
   createOwnerSessionToken,
+  ownerAuthLocked,
   ownerGateEnabled,
   verifyOwnerPassword,
   verifyOwnerSessionToken,
@@ -26,16 +28,23 @@ export default async function LoginPage({
   const next = first(sp.next) || "/studio";
   const error = first(sp.error);
   const jar = await cookies();
+  const locked = ownerAuthLocked();
 
   if (
-    !ownerGateEnabled() ||
-    verifyOwnerSessionToken(jar.get(OWNER_SESSION_COOKIE)?.value)
+    !locked &&
+    (!ownerGateEnabled() ||
+      verifyOwnerSessionToken(jar.get(OWNER_SESSION_COOKIE)?.value))
   ) {
     redirect(next.startsWith("/") ? next : "/studio");
   }
 
   async function loginAction(formData: FormData) {
     "use server";
+    if (ownerAuthLocked()) {
+      redirect(
+        `/login?error=${encodeURIComponent(OWNER_AUTH_LOCKED_MESSAGE)}&next=${encodeURIComponent(String(formData.get("next") ?? "/studio"))}`,
+      );
+    }
     const password = String(formData.get("password") ?? "");
     const dest = String(formData.get("next") ?? "/studio");
     if (!verifyOwnerPassword(password)) {
@@ -63,25 +72,29 @@ export default async function LoginPage({
       {error ? (
         <p className="mt-4 text-sm text-red-700">{error}</p>
       ) : null}
-      <form action={loginAction} className="mt-6 space-y-4">
-        <input type="hidden" name="next" value={next} />
-        <label className="block text-sm">
-          <span className="font-medium text-zinc-800">Password</span>
-          <input
-            type="password"
-            name="password"
-            required
-            autoFocus
-            className="mt-1 w-full rounded border border-zinc-300 px-3 py-2"
-          />
-        </label>
-        <button
-          type="submit"
-          className="w-full rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
-        >
-          Sign in
-        </button>
-      </form>
+      {locked ? (
+        <p className="mt-4 text-sm text-red-700">{OWNER_AUTH_LOCKED_MESSAGE}</p>
+      ) : (
+        <form action={loginAction} className="mt-6 space-y-4">
+          <input type="hidden" name="next" value={next} />
+          <label className="block text-sm">
+            <span className="font-medium text-zinc-800">Password</span>
+            <input
+              type="password"
+              name="password"
+              required
+              autoFocus
+              className="mt-1 w-full rounded border border-zinc-300 px-3 py-2"
+            />
+          </label>
+          <button
+            type="submit"
+            className="w-full rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+          >
+            Sign in
+          </button>
+        </form>
+      )}
     </main>
   );
 }

@@ -6,11 +6,17 @@ export const OWNER_SESSION_COOKIE = "noticed_owner_session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function sessionSecret(): string {
-  return (
-    process.env.NOTICED_SESSION_SECRET?.trim() ||
-    process.env.NOTICED_OWNER_PASSWORD?.trim() ||
-    "noticed-dev-session"
-  );
+  const secret = process.env.NOTICED_SESSION_SECRET?.trim();
+  if (!secret) {
+    // No fallback on purpose: a hardcoded default would be a public string
+    // (this repo is public), which would let anyone forge a valid owner
+    // session cookie. Callers must check ownerAuthLocked() first so this
+    // is only ever reached when the gate is fully configured.
+    throw new Error(
+      "NOTICED_SESSION_SECRET is not set — owner sessions cannot be created or verified.",
+    );
+  }
+  return secret;
 }
 
 /**
@@ -26,6 +32,20 @@ export function ownerAuthConfigured(): boolean {
     process.env.NOTICED_OWNER_PASSWORD?.trim() &&
       process.env.NOTICED_SESSION_SECRET?.trim(),
   );
+}
+
+export const OWNER_AUTH_LOCKED_MESSAGE =
+  "Noticed is locked because owner authentication is not fully configured.";
+
+/**
+ * True whenever the owner gate should apply but NOTICED_OWNER_PASSWORD /
+ * NOTICED_SESSION_SECRET aren't both set — covers a misconfigured
+ * production deploy as well as a partially-configured local setup, so
+ * every gate entry point (proxy, /login, /mcp/oauth/authorize) can check
+ * this once instead of reaching sessionSecret() and throwing.
+ */
+export function ownerAuthLocked(): boolean {
+  return ownerGateEnabled() && !ownerAuthConfigured();
 }
 
 export function verifyOwnerPassword(password: string): boolean {
