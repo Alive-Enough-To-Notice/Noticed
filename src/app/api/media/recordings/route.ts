@@ -18,7 +18,10 @@ export async function POST(request: NextRequest) {
   if (!contentProjectId) return NextResponse.json({ error: "This recording is missing its project." }, { status: 400 });
   if (!file) return NextResponse.json({ error: "Choose or record an audio or video file." }, { status: 400 });
   if (file.size <= 0 || file.size > MAX_MEDIA_BYTES) return NextResponse.json({ error: "The file must be between 1 byte and 250 MB." }, { status: 413 });
-  if (!ALLOWED_TYPES.has(file.type)) return NextResponse.json({ error: `That file type is not supported yet (${file.type || "unknown"}).` }, { status: 415 });
+  // file.type from a live MediaRecorder includes codec params (e.g.
+  // "video/webm;codecs=vp9,opus") — match on the base type, not the full string.
+  const baseType = file.type.split(";")[0].trim();
+  if (!ALLOWED_TYPES.has(baseType)) return NextResponse.json({ error: `That file type is not supported yet (${file.type || "unknown"}).` }, { status: 415 });
 
   const recording = await createRecording({
     contentProjectId,
