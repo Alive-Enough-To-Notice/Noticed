@@ -12,6 +12,8 @@ import {
 import { publish, type PublishableDestinationKey } from "@/lib/publishers";
 import type { ContentChannel, IdeaStatus } from "@/generated/prisma/client";
 import { createHash } from "node:crypto";
+import { mcpPublicOrigin } from "@/lib/mcp/oauth/config";
+import { attachExistingMedia, deleteAttachment } from "@/lib/services/attachments";
 
 export async function createIdeaAction(formData: FormData) {
   const brandKey = String(formData.get("brandKey") ?? "").trim();
@@ -175,13 +177,15 @@ export async function publishDraftAction(
 
   const draft = await prisma.contentDraft.findUniqueOrThrow({
     where: { id: draftId },
-    include: { contentProject: true },
+    include: { contentProject: true, attachments: true },
   });
+  const imageUrls = draft.attachments.map((a) => `${mcpPublicOrigin()}/api/media/attachments/${a.id}/file`);
 
   try {
     const result = await publish(destination, {
       title: draft.contentProject.title,
       body: draft.body,
+      imageUrls,
     });
     await prisma.publishAttempt.create({
       data: { draftId, destination, success: true, url: result.url ?? result.id },
@@ -193,5 +197,44 @@ export async function publishDraftAction(
     });
   }
 
+  revalidatePath(`/studio/projects/${projectId}`);
+}
+
+// Copies a ready cleaned export from this same project's Media Studio onto
+// the draft as its own attachment (see attachments.ts for why it's a copy,
+// not a reference). mediaExportId is trusted to belong to a recording in
+// this project because the picker in the UI only ever lists this project's
+// own ready exports — still worth a defensive check since a form post could
+// be forged with an arbitrary id.
+export async function attachRecordingToDraftAction(
+  projectId: string,
+  draftId: string,
+  formData: FormData,
+) {
+  const mediaExportId = String(formData.get("mediaExportId") ?? "");
+  if (!mediaExportId) throw new Error("Choose a cleaned recording to attach.");
+
+  const mediaExport = await prisma.mediaExport.findUniqueOrThrow({
+    where: { id: mediaExportId },
+    include: { recording: true },
+  });
+  if (mediaExport.recording.contentProjectId !== projectId) {
+    throw new Error("That recording doesn't belong to this project.");
+  }
+  if (mediaExport.status !== "READY" || !mediaExport.filePath) {
+    throw new Error("That export isn't ready yet.");
+  }
+
+  await attachExistingMedia({
+    contentDraftId: draftId,
+    sourceFilePath: mediaExport.filePath,
+    mimeType: mediaExport.mimeType ?? "video/mp4",
+  });
+
+  revalidatePath(`/studio/projects/${projectId}`);
+}
+
+export async function deleteAttachmentAction(projectId: string, attachmentId: string) {
+  await deleteAttachment(attachmentId);
   revalidatePath(`/studio/projects/${projectId}`);
 }

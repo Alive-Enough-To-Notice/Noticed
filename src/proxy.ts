@@ -30,7 +30,11 @@ export function proxy(request: NextRequest) {
     pathname === "/login" ||
     pathname.startsWith("/_next/") ||
     pathname === "/favicon.ico" ||
-    pathname === "/feed.xml"
+    pathname === "/feed.xml" ||
+    // Destination platforms (via Narrareach) fetch attached media directly —
+    // they can't carry an owner session cookie. Protected only by the
+    // attachment id's unguessability, same posture as feed.xml.
+    /^\/api\/media\/attachments\/[^/]+\/file$/.test(pathname)
   ) {
     return NextResponse.next();
   }

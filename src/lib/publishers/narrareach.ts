@@ -52,9 +52,14 @@ export async function publishToSubstackViaNarrareach(
 // the owner already has connected on their existing Narrareach account, so
 // this replaces the direct per-platform integrations for those three rather
 // than running alongside them (one paid connection already covers it).
+//
+// imageUrls must be real public HTTPS URLs — Narrareach's own docs are
+// explicit that local blob:/file: URLs can't be fetched by them. Noticed's
+// /api/media/attachments/[id]/file route is what's public here.
 async function scheduleNoteViaNarrareach(
   content: string,
   platforms: string[],
+  imageUrls?: string[],
 ): Promise<PublishResult> {
   const token = requireEnv("NARRAREACH_API_TOKEN");
   const scheduledFor = new Date(Date.now() + 60_000).toISOString();
@@ -65,13 +70,29 @@ async function scheduleNoteViaNarrareach(
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ content, platforms, scheduledFor }),
+    body: JSON.stringify({
+      content,
+      platforms,
+      scheduledFor,
+      ...(imageUrls && imageUrls.length > 0 ? { imageUrls } : {}),
+    }),
   });
   if (!res.ok) {
     throw new Error(`Narrareach note scheduling failed: ${await res.text()}`);
   }
   const data = (await res.json()) as { operationId?: string; id?: string; url?: string };
   return { id: data.operationId ?? data.id, url: data.url };
+}
+
+// Instagram, TikTok, and Pinterest all genuinely require at least one media
+// item per Narrareach's own documented per-platform limits — fail closed
+// with a clear message rather than let Narrareach's own API reject it with
+// a less legible error.
+function requireImageUrls(imageUrls: string[] | undefined, platform: string): string[] {
+  if (!imageUrls || imageUrls.length === 0) {
+    throw new Error(`${platform} requires at least one image or video attached to this draft.`);
+  }
+  return imageUrls;
 }
 
 export function publishToXViaNarrareach(text: string): Promise<PublishResult> {
@@ -88,4 +109,16 @@ export function publishToLinkedInViaNarrareach(text: string): Promise<PublishRes
 
 export function publishToFacebookViaNarrareach(text: string): Promise<PublishResult> {
   return scheduleNoteViaNarrareach(text, ["FACEBOOK"]);
+}
+
+export function publishToInstagramViaNarrareach(text: string, imageUrls?: string[]): Promise<PublishResult> {
+  return scheduleNoteViaNarrareach(text, ["INSTAGRAM"], requireImageUrls(imageUrls, "Instagram"));
+}
+
+export function publishToTikTokViaNarrareach(text: string, imageUrls?: string[]): Promise<PublishResult> {
+  return scheduleNoteViaNarrareach(text, ["TIKTOK"], requireImageUrls(imageUrls, "TikTok"));
+}
+
+export function publishToPinterestViaNarrareach(text: string, imageUrls?: string[]): Promise<PublishResult> {
+  return scheduleNoteViaNarrareach(text, ["PINTEREST"], requireImageUrls(imageUrls, "Pinterest"));
 }

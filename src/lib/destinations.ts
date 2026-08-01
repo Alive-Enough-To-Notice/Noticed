@@ -115,10 +115,10 @@ export const DESTINATIONS: Destination[] = [
   {
     key: "instagram",
     label: "Instagram",
-    capability: "EXPORT",
-    built: false,
+    capability: "CONFIRM",
+    built: true,
     notes:
-      "Corrected 2026-07-27: the same single-owner dev-mode bypass as Facebook applies to the App Review gate, but Instagram fundamentally requires an image or video for every post — no text-only posts — and the media must already be hosted at a public URL. Noticed doesn't generate images yet, so there's nothing to actually publish here regardless of credentials. Confirmed \"Not connected\" on the owner's actual Narrareach settings page too (2026-07-28) — same real blocker, image support, would need building first even if connected there instead.",
+      "Corrected 2026-08-01: Noticed now attaches media to a draft (an AI-generated image saved via the attach_image_to_draft MCP tool, or a copy of an existing Media Studio recording/export) and serves it at a real public URL for Narrareach to fetch. publishToInstagramViaNarrareach fails closed with a clear error if the draft has no attachment — the real per-platform image requirement is enforced, not just documented. Still shows \"Not connected\" on the owner's actual Narrareach account as of the last check — that's a real external step (connecting Instagram in Narrareach's own settings) only the owner can do, separate from the code being ready.",
   },
   {
     key: "threads",
@@ -131,18 +131,18 @@ export const DESTINATIONS: Destination[] = [
   {
     key: "tiktok",
     label: "TikTok",
-    capability: "EXPORT",
-    built: false,
+    capability: "CONFIRM",
+    built: true,
     notes:
-      "Narrareach lists TikTok, but \"publishes video and photo posts\" — like Instagram, this needs real video/image content Noticed doesn't generate yet. Also \"Not connected\" on the owner's account.",
+      "Corrected 2026-08-01: same attachment path as Instagram — publishToTikTokViaNarrareach requires at least one attached image/video, fails closed with a clear error otherwise. Narrareach supports up to 1 video or 35 images for TikTok. Still \"Not connected\" on the owner's actual Narrareach account — a real external connection step, not a code gap.",
   },
   {
     key: "pinterest",
     label: "Pinterest",
-    capability: "EXPORT",
-    built: false,
+    capability: "CONFIRM",
+    built: true,
     notes:
-      "Narrareach lists Pinterest, but it publishes image/video pins — same media requirement as Instagram/TikTok. Also \"Not connected\" on the owner's account.",
+      "Corrected 2026-08-01: same attachment path as Instagram/TikTok — publishToPinterestViaNarrareach requires at least one attached image/video (Pinterest requires exactly one media item per pin). Still \"Not connected\" on the owner's actual Narrareach account — a real external connection step, not a code gap.",
   },
   {
     key: "linkedin-business",

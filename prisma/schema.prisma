@@ -360,6 +360,32 @@ model ContentDraft {
   versions        DraftVersion[]
   approvals       DraftApproval[]
   scheduleEntries ScheduleEntry[]
+  attachments     DraftAttachment[]
+}
+
+// Image/video/audio attached to a draft — either an AI-generated image
+// arriving via the create_content_draft MCP client (saved from base64),
+// or a copy of an already-recorded/cleaned file from the Media Studio
+// (Recording/MediaExport). Always its own file on disk regardless of
+// origin, so publishing code only has to understand one shape. onDelete:
+// Cascade (unlike most parent relations in this schema, which use
+// Restrict) is deliberate here — an attachment has no independent value
+// once its draft is gone, unlike a Recording, which is real standalone
+// content.
+enum AttachmentKind {
+  IMAGE
+  VIDEO
+  AUDIO
+}
+
+model DraftAttachment {
+  id             String         @id @default(cuid())
+  contentDraftId String
+  contentDraft   ContentDraft   @relation(fields: [contentDraftId], references: [id], onDelete: Cascade)
+  kind           AttachmentKind
+  filePath       String
+  mimeType       String
+  createdAt      DateTime       @default(now())
 }
 
 model DraftVersion {

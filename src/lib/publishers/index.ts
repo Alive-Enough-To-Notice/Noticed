@@ -9,6 +9,9 @@ import {
   publishToBlueskyViaNarrareach,
   publishToLinkedInViaNarrareach,
   publishToFacebookViaNarrareach,
+  publishToInstagramViaNarrareach,
+  publishToTikTokViaNarrareach,
+  publishToPinterestViaNarrareach,
 } from "./narrareach";
 import { publishToGoogleBusinessViaBuffer } from "./buffer";
 
@@ -22,7 +25,10 @@ export type PublishableDestinationKey =
   | "linkedin-narrareach"
   | "x-narrareach"
   | "substack-narrareach"
-  | "google-business-buffer";
+  | "google-business-buffer"
+  | "instagram-narrareach"
+  | "tiktok-narrareach"
+  | "pinterest-narrareach";
 
 // Maps a destination + a draft's (title, body) onto the right publisher and
 // argument shape for that platform's post format. X, Bluesky, LinkedIn, and
@@ -31,7 +37,7 @@ export type PublishableDestinationKey =
 // Google Business routes through Buffer, connected separately.
 export async function publish(
   destinationKey: PublishableDestinationKey,
-  args: { title: string; body: string },
+  args: { title: string; body: string; imageUrls?: string[] },
 ): Promise<PublishResult> {
   switch (destinationKey) {
     case "bluesky-narrareach":
@@ -54,6 +60,12 @@ export async function publish(
       return publishToSubstackViaNarrareach(args.title, args.body);
     case "google-business-buffer":
       return publishToGoogleBusinessViaBuffer(args.body);
+    case "instagram-narrareach":
+      return publishToInstagramViaNarrareach(args.body, args.imageUrls);
+    case "tiktok-narrareach":
+      return publishToTikTokViaNarrareach(args.body, args.imageUrls);
+    case "pinterest-narrareach":
+      return publishToPinterestViaNarrareach(args.body, args.imageUrls);
   }
 }
 
@@ -67,8 +79,14 @@ export async function publish(
 // active list — the owner doesn't have a Mastodon account; it only came up
 // while thinking about a future mass-market version of Noticed, not
 // something to surface in a single-user dropdown right now.
+// Instagram/TikTok/Pinterest are listed under X (short caption + media is
+// the closest existing shape to how those platforms actually post) rather
+// than getting their own ContentChannel — they're always offered here even
+// on a draft with no attachment yet; publish() itself fails closed with a
+// clear "requires at least one image or video" error if none is attached,
+// same fail-closed pattern as a missing credential.
 export const CHANNEL_DESTINATIONS: Record<string, PublishableDestinationKey[]> = {
   BLOG: ["wordpress", "ghost", "reddit", "substack-narrareach", "google-business-buffer"],
   LINKEDIN: ["linkedin-narrareach", "facebook-narrareach"],
-  X: ["x-narrareach", "bluesky-narrareach"],
+  X: ["x-narrareach", "bluesky-narrareach", "instagram-narrareach", "tiktok-narrareach", "pinterest-narrareach"],
 };

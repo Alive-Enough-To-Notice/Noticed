@@ -11,6 +11,8 @@ import {
   editDraftBodyAction,
   setDraftScheduleAction,
   approveDraftAction,
+  attachRecordingToDraftAction,
+  deleteAttachmentAction,
 } from "../../actions";
 
 const DESTINATION_LABELS = Object.fromEntries(DESTINATIONS.map((d) => [d.key, d.label]));
@@ -27,7 +29,7 @@ export default async function ProjectDetailPage({
     include: {
       brand: true,
       ideas: { include: { idea: true } },
-      recordings: { orderBy: { createdAt: "desc" } },
+      recordings: { orderBy: { createdAt: "desc" }, include: { exports: { where: { status: "READY" } } } },
       sources: { orderBy: { capturedAt: "asc" } },
       drafts: {
         orderBy: { createdAt: "asc" },
@@ -37,6 +39,7 @@ export default async function ProjectDetailPage({
           versions: { orderBy: { createdAt: "desc" } },
           approvals: { orderBy: { createdAt: "desc" } },
           scheduleEntries: { orderBy: { scheduledFor: "asc" } },
+          attachments: { orderBy: { createdAt: "desc" } },
         },
       },
     },
@@ -202,7 +205,12 @@ export default async function ProjectDetailPage({
               const editBodyWithIds = editDraftBodyAction.bind(null, project.id, draft.id);
               const scheduleWithIds = setDraftScheduleAction.bind(null, project.id, draft.id);
               const approveWithIds = approveDraftAction.bind(null, project.id, draft.id);
+              const attachRecordingWithIds = attachRecordingToDraftAction.bind(null, project.id, draft.id);
+              const deleteAttachmentWithId = deleteAttachmentAction.bind(null, project.id);
               const destinationKeys = CHANNEL_DESTINATIONS[draft.channel] ?? [];
+              const readyExports = project.recordings.flatMap((recording) =>
+                recording.exports.map((exp) => ({ ...exp, recordingKind: recording.mediaKind })),
+              );
 
               return (
                 <div
@@ -220,6 +228,43 @@ export default async function ProjectDetailPage({
                       {draft.status === "APPROVED" ? "Approved" : "Draft"}
                     </span>
                   </div>
+
+                  {draft.attachments.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      {draft.attachments.map((attachment) => (
+                        <div key={attachment.id} className="flex flex-col gap-1">
+                          {attachment.kind === "IMAGE" ? (
+                            <img src={`/api/media/attachments/${attachment.id}/file`} alt="Attached to this draft" className="max-h-40 rounded border border-[var(--card-border)] object-cover" />
+                          ) : attachment.kind === "VIDEO" ? (
+                            <video controls src={`/api/media/attachments/${attachment.id}/file`} className="max-h-40 rounded border border-[var(--card-border)]" />
+                          ) : (
+                            <audio controls src={`/api/media/attachments/${attachment.id}/file`} className="w-full" />
+                          )}
+                          <form action={deleteAttachmentWithId.bind(null, attachment.id)}>
+                            <button type="submit" className="self-start text-xs font-medium text-[var(--critical)] hover:underline">
+                              Remove attachment
+                            </button>
+                          </form>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {readyExports.length > 0 && (
+                    <form action={attachRecordingWithIds} className="flex items-center gap-2">
+                      <select name="mediaExportId" required className="flex-1 rounded border border-[var(--card-border)] px-2 py-1 text-xs">
+                        <option value="">Attach a cleaned recording…</option>
+                        {readyExports.map((exp) => (
+                          <option key={exp.id} value={exp.id}>
+                            {exp.recordingKind === "VIDEO" ? "Video" : "Audio"} · {Math.round(exp.durationSeconds ?? 0)}s · {exp.createdAt.toLocaleDateString()}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="submit" className="rounded bg-[var(--accent)] px-2 py-1 text-xs font-medium text-white hover:bg-[var(--accent-hover)]">
+                        Attach
+                      </button>
+                    </form>
+                  )}
 
                   {draft.status === "APPROVED" ? (
                     <p className="whitespace-pre-wrap text-sm text-[var(--ink)]">{draft.body}</p>

@@ -4,6 +4,8 @@ import { z } from "zod";
 import { searchContent, createContentDraft, updateDraft } from "../lib/services/content";
 import { getBrandContext } from "../lib/services/brand-context";
 import { getCalendarEntries } from "../lib/services/calendar";
+import { saveAttachmentFromBase64 } from "../lib/services/attachments";
+import { prisma } from "../lib/prisma";
 import { BRAND_KEYS } from "../lib/brands";
 
 const brandKeySchema = z
@@ -174,6 +176,27 @@ export function registerNoticedTools(server: McpServer) {
       requireScope(extra, "mcp:content:write");
       const result = await updateDraft({ draftId, body, title, scheduledFor });
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.registerTool(
+    "attach_image_to_draft",
+    {
+      title: "Attach image to draft",
+      description:
+        "Attach an image YOU (the connected AI client) already generated to an existing content draft — e.g. for Instagram/TikTok/Pinterest, which require media on every post. Saves the supplied image bytes exactly as given; does not generate or edit images itself. Provide raw base64 image data (no data: URL prefix) and its mime type.",
+      inputSchema: {
+        draftId: z.string().describe("The ID of the draft to attach this image to."),
+        imageBase64: z.string().describe("Raw base64-encoded image bytes (no data: URL prefix)."),
+        mimeType: z.string().describe("The image's mime type, e.g. image/png or image/jpeg."),
+      },
+    },
+    async ({ draftId, imageBase64, mimeType }, extra) => {
+      requireScope(extra, "mcp:content:write");
+      const draft = await prisma.contentDraft.findUnique({ where: { id: draftId } });
+      if (!draft) throw new Error(`No draft found with id ${draftId}`);
+      const attachment = await saveAttachmentFromBase64({ contentDraftId: draftId, base64: imageBase64, mimeType });
+      return { content: [{ type: "text", text: JSON.stringify(attachment, null, 2) }] };
     },
   );
 

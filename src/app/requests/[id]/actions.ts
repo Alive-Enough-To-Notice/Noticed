@@ -6,6 +6,7 @@ import { REQUEST_STATUS_LABELS } from "@/lib/requests";
 import { getOrCreateProjectForRequest } from "@/lib/services/content-projects";
 import { publish, type PublishableDestinationKey } from "@/lib/publishers";
 import type { RequestStatus } from "@/generated/prisma/client";
+import { mcpPublicOrigin } from "@/lib/mcp/oauth/config";
 
 export async function updateStatus(requestId: string, formData: FormData) {
   const status = String(formData.get("status") ?? "") as RequestStatus;
@@ -207,13 +208,15 @@ export async function publishDraft(
 
   const draft = await prisma.contentDraft.findUniqueOrThrow({
     where: { id: draftId },
-    include: { contentProject: true },
+    include: { contentProject: true, attachments: true },
   });
+  const imageUrls = draft.attachments.map((a) => `${mcpPublicOrigin()}/api/media/attachments/${a.id}/file`);
 
   try {
     const result = await publish(destination, {
       title: draft.contentProject.title,
       body: draft.body,
+      imageUrls,
     });
 
     await prisma.$transaction([
