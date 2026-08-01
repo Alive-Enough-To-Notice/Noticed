@@ -173,6 +173,21 @@ export function AccessibleMediaEditor({ projectId, initialKind, initialRecording
     router.refresh();
   }
 
+  async function deleteRecording() {
+    if (!latest) return;
+    if (!window.confirm("Delete this recording, its transcript, and any cleaned exports? This can't be undone.")) return;
+    setBusy(true);
+    const response = await fetch(`/api/media/recordings/${latest.id}`, { method: "DELETE" });
+    setBusy(false);
+    if (response.ok) {
+      setSelection(null);
+      router.refresh();
+    } else {
+      const result = await response.json().catch(() => ({}));
+      setMessage(result.error ?? "Couldn't delete this recording.");
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <section className="rounded-xl border-2 border-[var(--accent)] bg-white p-5" aria-labelledby="record-heading">
@@ -199,8 +214,13 @@ export function AccessibleMediaEditor({ projectId, initialKind, initialRecording
 
       {latest && (
         <section className="rounded-xl border border-[var(--card-border)] bg-white p-5">
-          <h2 className="text-xl font-semibold">2. Read and remove what you don’t want</h2>
-          <p className="mt-1 text-sm text-[var(--slate)]">The original recording never changes. Select words here to hide them from the cleaned copy.</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">2. Read and remove what you don’t want</h2>
+              <p className="mt-1 text-sm text-[var(--slate)]">The original recording never changes. Select words here to hide them from the cleaned copy.</p>
+            </div>
+            <button onClick={deleteRecording} disabled={busy} className="rounded-lg border border-[var(--critical)] px-3 py-2 text-sm font-semibold text-[var(--critical)] disabled:opacity-40">Delete recording</button>
+          </div>
           {latest.status !== "TRANSCRIBED" ? (
             <div className="mt-4 rounded-lg bg-[var(--blue-frost)] p-4" role="status">
               <strong>{latest.status === "FAILED" ? "Transcription needs attention" : "Preparing your transcript…"}</strong>
@@ -252,7 +272,20 @@ export function AccessibleMediaEditor({ projectId, initialKind, initialRecording
           <h2 className="text-xl font-semibold">3. Make the cleaned file</h2>
           <p className="mt-1 text-sm text-[var(--slate)]">Preview above first. The exported copy skips removed words; your untouched original remains available.</p>
           <button onClick={makeExport} disabled={busy} className="mt-4 min-h-12 rounded-lg bg-[var(--lime)] px-6 py-3 text-lg font-semibold text-[var(--midnight)] disabled:opacity-50">Make cleaned {latest.mediaKind === "VIDEO" ? "video" : "episode"}</button>
-          {latest.exports.filter((item) => item.status === "READY").map((item) => <div key={item.id} className="mt-4 flex flex-wrap gap-2 rounded-lg bg-[var(--success-soft)] p-4"><a className="rounded-lg bg-[var(--accent)] px-4 py-2 font-semibold text-white" href={`/api/media/exports/${item.id}/file`}>Download cleaned {latest.mediaKind === "VIDEO" ? "video" : "audio"}</a><a className="rounded-lg border px-4 py-2 font-semibold" href={`/api/media/exports/${item.id}/captions`}>Download captions</a><span className="self-center text-sm">Clean duration: {Math.round(item.durationSeconds ?? 0)} seconds</span></div>)}
+          {latest.exports.filter((item) => item.status === "READY").map((item) => (
+            <div key={item.id} className="mt-4 rounded-lg bg-[var(--success-soft)] p-4">
+              {latest.mediaKind === "VIDEO" ? (
+                <video controls src={`/api/media/exports/${item.id}/file`} className="max-h-96 w-full rounded-lg bg-black" />
+              ) : (
+                <audio controls src={`/api/media/exports/${item.id}/file`} className="w-full" />
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a className="rounded-lg bg-[var(--accent)] px-4 py-2 font-semibold text-white" href={`/api/media/exports/${item.id}/file`}>Download cleaned {latest.mediaKind === "VIDEO" ? "video" : "audio"}</a>
+                <a className="rounded-lg border px-4 py-2 font-semibold" href={`/api/media/exports/${item.id}/captions`}>Download captions</a>
+                <span className="self-center text-sm">Clean duration: {Math.round(item.durationSeconds ?? 0)} seconds</span>
+              </div>
+            </div>
+          ))}
         </section>
       )}
     </div>

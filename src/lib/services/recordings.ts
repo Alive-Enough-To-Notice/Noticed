@@ -74,7 +74,11 @@ async function runWhisper(wavPath: string, outBase: string): Promise<{ segments:
   for (const segment of parsed.transcription) {
     for (const token of segment.tokens ?? []) {
       const text = token.text.trim();
-      if (!text || !token.offsets || /^<\|.*\|>$/.test(text)) continue;
+      // Two special-token formats leak through here if unfiltered: OpenAI
+      // Whisper's own "<|...|>" style, and whisper.cpp's own bracket style
+      // ("[_BEG_]", "[_TT_464]") — the latter isn't in upstream Whisper at
+      // all, so it's easy to miss until real transcripts show it.
+      if (!text || !token.offsets || /^<\|.*\|>$/.test(text) || /^\[_[^\]]*\]$/.test(text)) continue;
       words.push({
         index: words.length,
         start: token.offsets.from / 1000,
@@ -230,4 +234,25 @@ export async function createMarkerSuggestions(recordingId: string, words: Whispe
 
 export function recordingFilePath(recording: { filePath: string }) {
   return recording.filePath;
+}
+
+// MediaExport and EditDecision both use onDelete: Restrict against
+// Recording — real, intentional (a recording with real exports/decisions
+// shouldn't vanish by accident) — so a real delete has to remove those
+// rows, and their own files on disk, before the Recording row itself.
+export async function deleteRecording(recordingId: string) {
+  const recording = await prisma.recording.findUniqueOrThrow({
+    where: { id: recordingId },
+    include: { exports: true },
+  });
+
+  for (const mediaExport of recording.exports) {
+    if (mediaExport.filePath) await fs.rm(mediaExport.filePath, { force: true });
+    if (mediaExport.captionsPath) await fs.rm(mediaExport.captionsPath, { force: true });
+  }
+  await prisma.mediaExport.deleteMany({ where: { recordingId } });
+  await prisma.editDecision.deleteMany({ where: { recordingId } });
+  await prisma.recording.delete({ where: { id: recordingId } });
+
+  if (recording.filePath) await fs.rm(recording.filePath, { force: true });
 }
