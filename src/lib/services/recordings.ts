@@ -79,12 +79,25 @@ async function runWhisper(wavPath: string, outBase: string): Promise<{ segments:
       // ("[_BEG_]", "[_TT_464]") — the latter isn't in upstream Whisper at
       // all, so it's easy to miss until real transcripts show it.
       if (!text || !token.offsets || /^<\|.*\|>$/.test(text) || /^\[_[^\]]*\]$/.test(text)) continue;
-      words.push({
-        index: words.length,
-        start: token.offsets.from / 1000,
-        end: token.offsets.to / 1000,
-        text,
-      });
+      // BPE sub-word tokens with no leading whitespace (checked on the raw,
+      // untrimmed text) are continuations of the previous token, not new
+      // words — e.g. "yummy" arrives as " y" + "ummy". Without this, every
+      // sub-word split renders as its own separately-clickable "word" with
+      // a gap before it, reading as choppy even though the transcript text
+      // itself (built from segment-level text, not these tokens) is fine.
+      const isContinuation = !/^\s/.test(token.text) && words.length > 0;
+      if (isContinuation) {
+        const previous = words[words.length - 1];
+        previous.text += text;
+        previous.end = token.offsets.to / 1000;
+      } else {
+        words.push({
+          index: words.length,
+          start: token.offsets.from / 1000,
+          end: token.offsets.to / 1000,
+          text,
+        });
+      }
     }
   }
   return { segments, words };

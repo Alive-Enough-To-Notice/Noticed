@@ -86,13 +86,25 @@ export async function renderRecording(recordingId: string) {
     await fs.writeFile(captionsPath, buildVtt(words, removed), "utf8");
     const filters: string[] = [];
     const concatInputs: string[] = [];
+    // A plain trim+concat is a hard splice — the waveform jumps
+    // discontinuously at every cut, which reads as an audible pop/jump.
+    // A short fade-in/out on each kept segment (not a true crossfade
+    // between segments, which would need a different filter graph — this
+    // is cheaper and just as effective for eliminating the click) removes
+    // that. 20ms is short enough to be inaudible as an actual fade, long
+    // enough to kill the discontinuity; clamped to half the segment's own
+    // duration so a very short kept segment can't get a fade-in and
+    // fade-out that overlap each other.
     kept.forEach((range, index) => {
+      const duration = range.end - range.start;
+      const fade = Math.min(0.02, duration / 2);
+      const audioFade = `afade=t=in:st=0:d=${fade},afade=t=out:st=${duration - fade}:d=${fade}`;
       if (isVideo) {
         filters.push(`[0:v]trim=start=${range.start}:end=${range.end},setpts=PTS-STARTPTS[v${index}]`);
-        filters.push(`[0:a]atrim=start=${range.start}:end=${range.end},asetpts=PTS-STARTPTS[a${index}]`);
+        filters.push(`[0:a]atrim=start=${range.start}:end=${range.end},asetpts=PTS-STARTPTS,${audioFade}[a${index}]`);
         concatInputs.push(`[v${index}][a${index}]`);
       } else {
-        filters.push(`[0:a]atrim=start=${range.start}:end=${range.end},asetpts=PTS-STARTPTS[a${index}]`);
+        filters.push(`[0:a]atrim=start=${range.start}:end=${range.end},asetpts=PTS-STARTPTS,${audioFade}[a${index}]`);
         concatInputs.push(`[a${index}]`);
       }
     });
