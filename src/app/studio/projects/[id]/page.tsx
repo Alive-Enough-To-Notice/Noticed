@@ -13,6 +13,7 @@ import {
   approveDraftAction,
   attachRecordingToDraftAction,
   deleteAttachmentAction,
+  publishDraftAction,
 } from "../../actions";
 
 const DESTINATION_LABELS = Object.fromEntries(DESTINATIONS.map((d) => [d.key, d.label]));
@@ -207,6 +208,7 @@ export default async function ProjectDetailPage({
               const approveWithIds = approveDraftAction.bind(null, project.id, draft.id);
               const attachRecordingWithIds = attachRecordingToDraftAction.bind(null, project.id, draft.id);
               const deleteAttachmentWithId = deleteAttachmentAction.bind(null, project.id);
+              const publishDraftWithIds = publishDraftAction.bind(null, project.id, draft.id);
               const destinationKeys = CHANNEL_DESTINATIONS[draft.channel] ?? [];
               const readyExports = project.recordings.flatMap((recording) =>
                 recording.exports.map((exp) => ({ ...exp, recordingKind: recording.mediaKind })),
@@ -374,9 +376,18 @@ export default async function ProjectDetailPage({
                   )}
 
                   {draft.status === "APPROVED" && destinationKeys.length > 0 && (
-                    <div className="rounded border border-[var(--attention)] bg-[var(--attention-soft)] p-2 text-xs text-[var(--attention)]">
-                      Live publishing is locked. This approved snapshot is ready for destination preview and explicit owner approval.
-                    </div>
+                    <form action={publishDraftWithIds} className="flex gap-2 border-t border-[var(--card-border)] pt-2">
+                      <select name="destination" required className="flex-1 rounded border border-[var(--card-border)] px-2 py-1.5 text-sm">
+                        {destinationKeys.map((key) => (
+                          <option key={key} value={key}>
+                            {DESTINATION_LABELS[key] ?? key}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="submit" className="rounded bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)]">
+                        Publish
+                      </button>
+                    </form>
                   )}
 
                   {draft.scheduleEntries.length > 0 && (
